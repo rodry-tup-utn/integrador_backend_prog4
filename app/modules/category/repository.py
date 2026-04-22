@@ -85,12 +85,13 @@ class CategoryRepository(BaseRepository[Category]):
         self.session.add(category)
         self.session.flush()
 
-    def restore(self, category: Category) -> None:
+    def restore(self, category: Category) -> Category:
         category.deleted_at = None
         self.session.add(category)
         self.session.flush()
+        return category
 
-    def search_by_name(
+    def search_active_by_name(
         self, query: str, offset: int = 0, limit: int = 20
     ) -> Sequence[Category]:
         statement = (
@@ -105,7 +106,7 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).all()
 
-    def count_search_by_name(self, query: str) -> int:
+    def count_search_active_by_name(self, query: str) -> int:
         statement = (
             select(func.count())
             .select_from(Category)
@@ -113,5 +114,25 @@ class CategoryRepository(BaseRepository[Category]):
                 col(Category.name).ilike(f"%{query}%"),
                 col(Category.deleted_at).is_(None),
             )
+        )
+        return self.session.exec(statement).one()
+
+    def search_by_name(
+        self, query: str, offset: int = 0, limit: int = 20
+    ) -> Sequence[Category]:
+        statement = (
+            select(Category)
+            .where(col(Category.name).ilike(f"%{query}%"))
+            .offset(offset)
+            .limit(limit)
+            .order_by(func.lower(Category.name))
+        )
+        return self.session.exec(statement).all()
+
+    def count_search_by_name(self, query: str) -> int:
+        statement = (
+            select(func.count())
+            .select_from(Category)
+            .where(col(Category.name).ilike(f"%{query}%"))
         )
         return self.session.exec(statement).one()
