@@ -104,3 +104,14 @@ class CategoryRepository(BaseRepository[Category]):
             .order_by(func.lower(Category.name))
         )
         return self.session.exec(statement).all()
+
+    def count_search_by_name(self, query: str) -> int:
+        statement = (
+            select(func.count())
+            .select_from(Category)
+            .where(
+                col(Category.name).ilike(f"%{query}%"),
+                col(Category.deleted_at).is_(None),
+            )
+        )
+        return self.session.exec(statement).one()
