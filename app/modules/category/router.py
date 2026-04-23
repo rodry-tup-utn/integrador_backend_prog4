@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Path
 from sqlmodel import Session
 from app.modules.category.service import CategoryService
 from app.modules.category.schemas import (
@@ -8,6 +8,7 @@ from app.modules.category.schemas import (
     CategoryUpdate,
 )
 from app.core.database import get_session
+from typing import Annotated
 
 
 def get_category_service(session: Session = Depends(get_session)) -> CategoryService:
@@ -22,20 +23,17 @@ admin_router = APIRouter(prefix="/admin/category", tags=["Admin - Categorias"])
 def list_all_actives(
     offset: int = 0,
     limit: int = 20,
-    query: str | None = Query(default=None, max_length=50),
     svc: CategoryService = Depends(get_category_service),
 ):
-    if query is not None:
-        return svc.search(query, offset, limit)
 
     return svc.list_all(offset, limit)
 
 
 @router.get("/search", response_model=CategoryList)
 def search(
-    query: str = Query(..., max_length=50),
-    offset: int = 0,
-    limit: int = 20,
+    query: Annotated[str, Query(min_length=1, max_length=50)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.search(query, offset, limit)
@@ -43,7 +41,7 @@ def search(
 
 @router.get("/{id}", response_model=CategoryPublic)
 def get_by_id(
-    id: int,
+    id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.get_by_id(id)
@@ -57,9 +55,9 @@ def create(
     return svc.create(data)
 
 
-@router.put("/{id}", response_model=CategoryPublic)
+@router.patch("/{id}", response_model=CategoryPublic)
 def update(
-    id: int,
+    id: Annotated[int, Path(ge=1)],
     data: CategoryUpdate,
     svc: CategoryService = Depends(get_category_service),
 ):
@@ -68,22 +66,18 @@ def update(
 
 @admin_router.get("/", response_model=CategoryList)
 def list_all_admin(
-    offset: int = 0,
-    limit: int = 20,
-    query: str | None = Query(default=None, max_length=50),
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    if query is not None:
-        return svc.search_all(query, offset, limit)
-
     return svc.list_all_admin(offset, limit)
 
 
 @admin_router.get("/search", response_model=CategoryList)
 def search_admin(
-    query: str = Query(..., max_length=50),
-    offset: int = 0,
-    limit: int = 20,
+    query: Annotated[str, Query(max_length=50, min_length=3)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.search_all(query, offset, limit)
@@ -91,20 +85,22 @@ def search_admin(
 
 @admin_router.get("/{id}", response_model=CategoryPublic)
 def get_by_id_admin(
-    id: int,
+    id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.get_by_id_admin(id)
 
 
+@admin_router.patch("/{id}/restore", response_model=CategoryPublic)
+def restore(
+    id: Annotated[int, Path(ge=1)], svc: CategoryService = Depends(get_category_service)
+):
+    return svc.restore(id)
+
+
 @admin_router.delete("/{id}", status_code=204)
 def delete(
-    id: int,
+    id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.delete(id)
-
-
-@admin_router.patch("/{id}/restore", response_model=CategoryPublic)
-def restore(id: int, svc: CategoryService = Depends(get_category_service)):
-    return svc.restore(id)
