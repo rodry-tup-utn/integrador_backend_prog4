@@ -92,6 +92,14 @@ class CategoryService:
             if data.name and data.name != category.name:
                 self._assert_name_unique(uow, data.name)
 
+            if data.parent_id is not None:
+                if category.id == data.parent_id:
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST,
+                        "No puedes asignar la categoria a si misma",
+                    )
+                self._get_active_or_404(uow, data.parent_id)
+
             patch = data.model_dump(exclude_unset=True)
             for field, value in patch.items():
                 setattr(category, field, value)
