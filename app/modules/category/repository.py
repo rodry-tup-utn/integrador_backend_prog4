@@ -4,6 +4,7 @@ from app.core.repository import BaseRepository
 from app.modules.category.models import Category
 from sqlalchemy import func
 from datetime import datetime, timezone
+from sqlalchemy.orm import selectinload
 
 
 class CategoryRepository(BaseRepository[Category]):
@@ -33,24 +34,55 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).all()
 
+    def get_all_root_active(
+        self, offset: int = 0, limit: int = 20
+    ) -> Sequence[Category]:
+        statement = (
+            select(Category)
+            .where(col(Category.deleted_at).is_(None))
+            .where(col(Category.parent_id).is_(None))
+            .order_by(func.lower(Category.name))
+            .offset(offset)
+            .limit(limit)
+        )
+        return self.session.exec(statement).all()
+
     def get_by_id_active(self, category_id: int) -> Category | None:
         statement = (
             select(Category)
             .where(col(Category.deleted_at).is_(None))
             .where(Category.id == category_id)
+            .options(selectinload(Category.children))
         )
         return self.session.exec(statement).first()
+
+    def get_by_id_active_with_children(self, category_id: int) -> Category | None:
+        statement = (
+            select(Category)
+            .where(col(Category.deleted_at).is_(None))
+            .where(Category.id == category_id)
+            .options(selectinload(Category.children))
+        )
+        return self.session.exec(statement).first()
+
+    def get_children_active(self, category_id: int) -> list[Category]:
+        statement = (
+            select(Category)
+            .where(Category.id == category_id)
+            .where(col(Category.deleted_at).is_(None))
+            .options(selectinload(Category.children))
+        )
+
+        category = self.session.exec(statement).first()
+
+        if not category:
+            return []
+
+        return category.children
 
     def exists_by_name(self, category_name: str) -> bool:
         statement = select(Category.id).where(
             func.lower(Category.name) == category_name.lower()
-        )
-        return self.session.exec(statement).first() is not None
-
-    def exists_by_name_active(self, category_name: str) -> bool:
-        statement = select(Category.id).where(
-            func.lower(Category.name) == category_name.lower(),
-            col(Category.deleted_at).is_(None),
         )
         return self.session.exec(statement).first() is not None
 
@@ -59,16 +91,18 @@ class CategoryRepository(BaseRepository[Category]):
             select(func.count())
             .select_from(Category)
             .where(col(Category.deleted_at).is_(None))
+            .where(col(Category.parent_id).is_(None))
         )
         return self.session.exec(statement).one()
 
-    def get_children(self, parent_id: int) -> Sequence[Category]:
+    def count_root_active(self) -> int:
         statement = (
-            select(Category)
-            .where(Category.parent_id == parent_id, col(Category.deleted_at).is_(None))
-            .order_by(func.lower(Category.name))
+            select(func.count())
+            .select_from(Category)
+            .where(col(Category.deleted_at).is_(None))
+            .where(col(Category.parent_id).is_(None))
         )
-        return self.session.exec(statement).all()
+        return self.session.exec(statement).one()
 
     def get_root_categories(self) -> Sequence[Category]:
         statement = (
