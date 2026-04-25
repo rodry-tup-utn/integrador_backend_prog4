@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 from typing import List
@@ -19,6 +20,10 @@ class CategoryPublic(SQLModel):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
+
+
+class CategoryPublicTree(CategoryPublic):
+    children: list[CategoryPublicTree]
 
 
 class CategoryUpdate(SQLModel):
