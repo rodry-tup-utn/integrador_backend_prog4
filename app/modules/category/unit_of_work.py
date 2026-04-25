@@ -6,5 +6,4 @@ from app.modules.category.repository import CategoryRepository
 class CategoryUnitOfWork(UnitOfWork["CategoryUnitOfWork"]):
     def __init__(self, session: Session) -> None:
         super().__init__(session)
-        self.categorias = CategoryRepository(session)
-        # Agregar productos
+        self.categories = CategoryRepository(session)
