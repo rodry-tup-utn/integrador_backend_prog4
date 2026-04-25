@@ -4,3 +4,4 @@ sqlmodel
 psycopg2-binary
 python-dotenv
 pydantic-settings
+sqlalchemy2-stubs
