@@ -6,6 +6,7 @@ from app.modules.category.schemas import (
     CategoryPublic,
     CategoryUpdate,
     CategoryPublicTree,
+    CategoryTree,
 )
 from sqlmodel import Session
 from app.modules.category.unit_of_work import CategoryUnitOfWork
@@ -97,10 +98,16 @@ class CategoryService:
     def update(self, category_id: int, data: CategoryUpdate) -> CategoryPublic:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, category_id)
-            list_categories = list(uow.categories.get_all_no_paged())
-            category_map = self._build_tree_map(list_categories)
+            list_categories = list(uow.categories.get_all_active_no_paged())
+            category_map = self._build_category_map(list_categories)
 
             if data.parent_id is not None:
+                products = uow.category_products.has_products(category_id)
+                if products:
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST,
+                        "No puedes modificar el arbol de jerarquias en una categoria con productos ",
+                    )
                 if category.id == data.parent_id:
                     raise HTTPException(
                         400, "No puedes asignar la categoria a si misma"
@@ -109,7 +116,9 @@ class CategoryService:
                 self._get_active_or_404(uow, data.parent_id)
 
                 if self._would_create_cycle(category, data.parent_id, category_map):
-                    raise HTTPException(400, "Ciclo detectado en jerarquía")
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
+                    )
 
             if data.name and data.name != category.name:
                 self._assert_name_unique(uow, data.name)
@@ -125,17 +134,24 @@ class CategoryService:
         return result
 
     # Delete (soft)
-
+    # Solo se permite borrar categorias sin productos y sin hijos para evitar inconsistencia de datos
     def delete(self, category_id: int):
         with CategoryUnitOfWork(self._session) as uow:
-            children = uow.categories.get_children_active(category_id)
+            category = self._get_active_or_404(uow, category_id)
+            children = uow.categories.has_children_active(category_id)
+            links = uow.category_products.has_products(category_id)
+
+            if links:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No se puede eliminar una categoria con productos asociados",
+                )
             if children:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
                     "No puedes eliminar una categoria con hijos activos",
                 )
 
-            category = self._get_active_or_404(uow, category_id)
             uow.categories.soft_delete(category)
 
         return status.HTTP_204_NO_CONTENT
@@ -194,38 +210,36 @@ class CategoryService:
 
         return tree
 
-    def _build_tree(
+    # Reemplaza _build_tree y _a_nodo por esta versión única
+    def _build_tree_recursive(
         self,
         category: Category,
         tree_map: dict[int | None, list[Category]],
-        visited: set[int] | None = None,
-    ) -> CategoryPublicTree:
+        current_depth: int,
+        max_depth: int,
+        visited: set[int],
+    ) -> CategoryTree:
 
-        if visited is None:
-            visited = set()
-
-        # evitar ciclos
         if category.id in visited:
-            raise ValueError("Ciclo detectado en categorias")
+            raise HTTPException(400, "Ciclo detectado en la base de datos")
+        visited.add(category.id)  # type: ignore
 
-        visited.add(category.id)  # type:ignore
+        hijos_formateados = []
+        if current_depth < max_depth:
+            hijos_raw = tree_map.get(category.id, [])
+            hijos_formateados = [
+                self._build_tree_recursive(
+                    hijo, tree_map, current_depth + 1, max_depth, visited.copy()
+                )
+                for hijo in hijos_raw
+                if hijo.deleted_at is None
+            ]
 
-        children = tree_map.get(category.id, [])
-
-        return CategoryPublicTree(
+        return CategoryTree(
             id=category.id,  # type: ignore
             name=category.name,
-            description=category.description,
-            image_url=category.image_url,
             parent_id=category.parent_id,
-            created_at=category.created_at,
-            updated_at=category.updated_at,
-            deleted_at=category.deleted_at,
-            children=[
-                self._build_tree(child, tree_map, visited.copy())
-                for child in children
-                if child.deleted_at is None
-            ],
+            children=hijos_formateados,
         )
 
     def _build_category_map(self, categories: list[Category]) -> dict[int, Category]:
@@ -256,23 +270,21 @@ class CategoryService:
 
         return result
 
-    def get_full_tree(self, root_id: int) -> CategoryPublicTree:
+    def get_full_tree_by_id(self, root_id: int, max_depth: int = 3) -> CategoryTree:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = list(uow.categories.get_all_no_paged())
-
-            root = next((c for c in categories if c.id == root_id), None)
+            categorias = list(uow.categories.get_all_active_no_paged())
+            root = next((c for c in categorias if c.id == root_id), None)
 
             if not root:
-                raise HTTPException(404, "Categoria no encontrada")
+                raise HTTPException(404, "Categoría no encontrada")
 
-            tree_map = self._build_tree_map(categories)
-
-            return self._build_tree(root, tree_map)
+            tree_map = self._build_tree_map(categorias)
+            return self._build_tree_recursive(root, tree_map, 0, max_depth, set())
 
     def get_category_chain(self, child_id: int) -> list[int]:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, child_id)
-            categories_list = list(uow.categories.get_all_no_paged())
+            categories_list = list(uow.categories.get_all_active_no_paged())
             category_map = self._build_category_map(categories_list)
             parents_chain_id = self._build_parent_chain(category, category_map)
 
@@ -297,3 +309,14 @@ class CategoryService:
             current = category_map.get(current.parent_id)
 
         return False
+
+    def get_full_tree(self, max_depth: int = 3) -> list[CategoryTree]:
+        with CategoryUnitOfWork(self._session) as uow:
+            categorias = list(uow.categories.get_all_active_no_paged())
+            tree_map = self._build_tree_map(categorias)
+            raices = [c for c in categorias if c.parent_id is None]
+
+            return [
+                self._build_tree_recursive(r, tree_map, 0, max_depth, set())
+                for r in raices
+            ]
