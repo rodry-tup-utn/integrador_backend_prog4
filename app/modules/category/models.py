@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
+from sqlalchemy import Column, Integer, ForeignKey
 
 if TYPE_CHECKING:
     from app.modules.product_category.models import ProductCategoryLink
@@ -9,8 +10,9 @@ if TYPE_CHECKING:
 class Category(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
-    parent_id: int | None = Field(
-        default=None, foreign_key="category.id", nullable=True
+    parent_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("category.id", ondelete="SET NULL")),
     )
 
     name: str = Field(max_length=50, min_length=4, unique=True, index=True)
@@ -18,12 +20,13 @@ class Category(SQLModel, table=True):
     image_url: str | None = Field(default=None, max_length=255)
 
     parent: Optional["Category"] = Relationship(
-        back_populates="children", sa_relationship_kwargs={"remote_side": "Category.id"}
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "[Category.id]"},
     )
 
     children: List["Category"] = Relationship(
         back_populates="parent",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={"lazy": "selectin"},
     )
 
     product_links: List["ProductCategoryLink"] = Relationship(back_populates="category")
