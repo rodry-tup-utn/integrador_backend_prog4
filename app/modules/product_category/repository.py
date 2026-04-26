@@ -71,3 +71,10 @@ class ProductCategoryLinkRepository:
         ]
 
         self.session.add_all(links)
+
+    def has_products(self, category_id: int) -> bool:
+        statement = select(ProductCategoryLink).where(
+            ProductCategoryLink.category_id == category_id
+        )
+
+        return self.session.exec(statement).first() is not None
