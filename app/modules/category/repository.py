@@ -19,7 +19,7 @@ class CategoryRepository(BaseRepository[Category]):
 
     def get_by_name_active(self, category_name: str) -> Category | None:
         statement = select(Category).where(
-            func.lower(Category.name) == category_name,
+            func.lower(Category.name) == category_name.lower(),
             col(Category.deleted_at).is_(None),
         )
         return self.session.exec(statement).first()
@@ -34,7 +34,7 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).all()
 
-    def get_all_no_paged(self) -> Sequence[Category]:
+    def get_all_active_no_paged(self) -> Sequence[Category]:
         statement = select(Category).where(col(Category.deleted_at).is_(None))
         return self.session.exec(statement).all()
 
@@ -95,7 +95,6 @@ class CategoryRepository(BaseRepository[Category]):
             select(func.count())
             .select_from(Category)
             .where(col(Category.deleted_at).is_(None))
-            .where(col(Category.parent_id).is_(None))
         )
         return self.session.exec(statement).one()
 
@@ -177,3 +176,9 @@ class CategoryRepository(BaseRepository[Category]):
             .where(col(Category.name).ilike(f"%{query}%"))
         )
         return self.session.exec(statement).one()
+
+    def has_children_active(self, category_id: int) -> bool:
+        statement = select(Category.id).where(
+            Category.parent_id == category_id, col(Category.deleted_at).is_(None)
+        )
+        return self.session.exec(statement).first() is not None
