@@ -147,6 +147,10 @@ class ProductRepository(BaseRepository[Product]):
             .select_from(Product)
             .join(ProductCategoryLink)
             .where(ProductCategoryLink.category_id == category_id)
+            .where(
+                ProductCategoryLink.category_id == category_id,
+                col(Product.deleted_at).is_(None),
+            )
         )
         return self.session.exec(statement).one()
 
