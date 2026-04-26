@@ -1,5 +1,6 @@
 from typing import Generic, TypeVar, Type, Sequence
 from sqlmodel import Session, SQLModel, select
+from sqlalchemy import func
 
 ModelT = TypeVar("ModelT", bound=SQLModel)
 
@@ -18,6 +19,10 @@ class BaseRepository(Generic[ModelT]):
     def get_all(self, offset: int = 0, limit: int = 20) -> Sequence[ModelT]:
 
         return self.session.exec(select(self.model).offset(offset).limit(limit)).all()
+
+    def count(self) -> int:
+        statement = select(func.count()).select_from(self.model)
+        return self.session.exec(statement).one()
 
     def add(self, instance: ModelT) -> ModelT:
 

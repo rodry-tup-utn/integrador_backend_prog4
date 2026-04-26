@@ -1,0 +1,36 @@
+from sqlmodel import SQLModel, Field, Relationship
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+from sqlalchemy import Column, Integer, ForeignKey
+
+if TYPE_CHECKING:
+    from app.modules.product_category.models import ProductCategoryLink
+
+
+class Category(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+
+    parent_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("category.id", ondelete="SET NULL")),
+    )
+
+    name: str = Field(max_length=50, min_length=4, unique=True, index=True)
+    description: str | None = Field(default=None, min_length=5, max_length=255)
+    image_url: str | None = Field(default=None, max_length=255)
+
+    parent: Optional["Category"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "[Category.id]"},
+    )
+
+    children: List["Category"] = Relationship(
+        back_populates="parent",
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
+    product_links: List["ProductCategoryLink"] = Relationship(back_populates="category")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime | None = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
