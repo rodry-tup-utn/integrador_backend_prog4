@@ -6,6 +6,7 @@ from app.modules.category.schemas import (
     CategoryList,
     CategoryPublic,
     CategoryUpdate,
+    CategoryTree,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -47,12 +48,21 @@ def list_root_active(
     return svc.get_root_categories(offset, limit)
 
 
+@router.get("/tree", response_model=list[CategoryTree])
+def get_full_tree(
+    max_depth: Annotated[int, Query(ge=1, le=4)] = 3,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_full_tree(max_depth)
+
+
 @router.get("/children/{id}")
 def get_children_list(
     id: Annotated[int, Path(ge=1)],
+    max_depth: Annotated[int, Query(le=5, ge=1)] = 3,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.get_full_tree(id)
+    return svc.get_full_tree_by_id(id, max_depth)
 
 
 @router.post("/", response_model=CategoryPublic, status_code=201)
