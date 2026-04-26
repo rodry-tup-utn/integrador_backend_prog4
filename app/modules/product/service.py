@@ -106,7 +106,7 @@ class ProductService:
             product = Product.model_validate(data)
             uow.products.add(product)
 
-            categories = list(uow.categories.get_all_no_paged())
+            categories = list(uow.categories.get_all_active_no_paged())
             category_map = self._build_category_map(categories)
             chain_ids = self._build_parent_chain(primary_category, category_map)
 
@@ -188,19 +188,22 @@ class ProductService:
                 product_id
             )
 
-            if data.category_id is not None and (
-                not current_primary or current_primary.category_id != data.category_id
-            ):
+            if data.category_id is not None:
                 new_category = self._get_category_active_or_404(uow, data.category_id)
-                uow.product_category_link.delete_by_product_id(product_id)
 
-                categories = list(uow.categories.get_all_no_paged())
-                category_map = self._build_category_map(categories)
-                chain_ids = self._build_parent_chain(new_category, category_map)
+                if (
+                    not current_primary
+                    or current_primary.category_id != new_category.id
+                ):
+                    uow.product_category_link.delete_by_product_id(product_id)
 
-                uow.product_category_link.create_chain(
-                    product_id, chain_ids, new_category.id  # type: ignore
-                )
+                    categories = list(uow.categories.get_all_active_no_paged())
+                    category_map = self._build_category_map(categories)
+                    chain_ids = self._build_parent_chain(new_category, category_map)
+
+                    uow.product_category_link.create_chain(
+                        product_id, chain_ids, new_category.id  # type: ignore
+                    )
 
             patch = data.model_dump(exclude_unset=True, exclude={"category_id"})
             for field, value in patch.items():
