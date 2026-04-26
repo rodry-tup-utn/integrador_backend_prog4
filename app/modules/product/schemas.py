@@ -14,7 +14,6 @@ class ProductCreate(SQLModel):
 class CategoryBase(SQLModel):
     id: int
     name: str
-    description: str | None
     image_url: str | None
 
 
@@ -24,14 +23,14 @@ class ProductPublic(SQLModel):
     name: str
     description: str | None
     images_url: str | None
-    category_id: int
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
 
 
 class ProductPublicFull(ProductPublic):
-    category: CategoryBase | None
+    primary_category: CategoryBase
+    categories: list[CategoryBase] | None
 
 
 class ProductList(SQLModel):
