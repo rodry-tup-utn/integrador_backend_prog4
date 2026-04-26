@@ -26,6 +26,13 @@ class CategoryPublicTree(CategoryPublic):
     children: list[CategoryPublicTree]
 
 
+class CategoryTree(SQLModel):
+    id: int
+    name: str
+    parent_id: int | None
+    children: list[CategoryTree]
+
+
 class CategoryUpdate(SQLModel):
     parent_id: int | None = Field(default=None)
     name: str | None = Field(default=None, min_length=4, max_length=50)
