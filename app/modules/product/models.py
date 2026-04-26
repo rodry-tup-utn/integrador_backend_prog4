@@ -2,6 +2,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from decimal import Decimal
+from app.modules.product_category.models import ProductCategoryLink
 
 if TYPE_CHECKING:
     from app.modules.category.models import Category
@@ -15,9 +16,7 @@ class Product(SQLModel, table=True):
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
     images_url: str | None = Field(default=None)
-    category_id: int = Field(ge=1, foreign_key="category.id")
-
-    category: "Category" = Relationship(back_populates="products")
+    category_links: list["ProductCategoryLink"] = Relationship(back_populates="product")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)

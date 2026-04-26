@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from app.modules.product.models import Product
+    from app.modules.product_category.models import ProductCategoryLink
 
 
 class Category(SQLModel, table=True):
@@ -26,7 +26,7 @@ class Category(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
-    products: List["Product"] = Relationship(back_populates="category")
+    product_links: List["ProductCategoryLink"] = Relationship(back_populates="category")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime | None = Field(default=None)
