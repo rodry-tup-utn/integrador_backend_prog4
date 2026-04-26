@@ -23,12 +23,12 @@ class ProductPublic(SQLModel):
     name: str
     description: str | None
     images_url: str | None
-    created_at: datetime
-    updated_at: datetime | None
-    deleted_at: datetime | None
 
 
 class ProductPublicFull(ProductPublic):
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
     primary_category: CategoryBase
     categories: list[CategoryBase] | None
 
