@@ -37,7 +37,7 @@ class CategoryService:
         return category
 
     def _assert_name_unique(self, uow: CategoryUnitOfWork, category_name: str):
-        if uow.categories.get_by_name(category_name.lower()):
+        if uow.categories.get_by_name(category_name):
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"La categoria con nombre {category_name} ya existe",
@@ -51,6 +51,8 @@ class CategoryService:
 
             categoria = Category.model_validate(data)
             uow.categories.add(categoria)
+            if data.parent_id:
+                self._get_active_or_404(uow, data.parent_id)
 
             result = CategoryPublic.model_validate(categoria)
         return result
@@ -95,17 +97,22 @@ class CategoryService:
     def update(self, category_id: int, data: CategoryUpdate) -> CategoryPublic:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, category_id)
-
-            if data.name and data.name != category.name:
-                self._assert_name_unique(uow, data.name)
+            list_categories = list(uow.categories.get_all_no_paged())
+            category_map = self._build_tree_map(list_categories)
 
             if data.parent_id is not None:
                 if category.id == data.parent_id:
                     raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
-                        "No puedes asignar la categoria a si misma",
+                        400, "No puedes asignar la categoria a si misma"
                     )
+
                 self._get_active_or_404(uow, data.parent_id)
+
+                if self._would_create_cycle(category, data.parent_id, category_map):
+                    raise HTTPException(400, "Ciclo detectado en jerarquía")
+
+            if data.name and data.name != category.name:
+                self._assert_name_unique(uow, data.name)
 
             patch = data.model_dump(exclude_unset=True)
             for field, value in patch.items():
@@ -121,6 +128,13 @@ class CategoryService:
 
     def delete(self, category_id: int):
         with CategoryUnitOfWork(self._session) as uow:
+            children = uow.categories.get_children_active(category_id)
+            if children:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No puedes eliminar una categoria con hijos activos",
+                )
+
             category = self._get_active_or_404(uow, category_id)
             uow.categories.soft_delete(category)
 
@@ -214,9 +228,37 @@ class CategoryService:
             ],
         )
 
+    def _build_category_map(self, categories: list[Category]) -> dict[int, Category]:
+        return {c.id: c for c in categories if c.id is not None}
+
+    def _build_parent_chain(
+        self,
+        category: Category,
+        category_map: dict[int, Category],
+    ) -> list[int]:
+
+        result: list[int] = []
+        visited: set[int] = set()
+
+        current = category
+
+        while current is not None:
+            if current.id in visited:
+                raise ValueError("Ciclo detectado en categorias")
+
+            visited.add(current.id)  # type: ignore
+            result.append(current.id)  # type: ignore
+
+            if current.parent_id is None:
+                break
+
+            current = category_map.get(current.parent_id)
+
+        return result
+
     def get_full_tree(self, root_id: int) -> CategoryPublicTree:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = list(uow.categories.get_all_active())
+            categories = list(uow.categories.get_all_no_paged())
 
             root = next((c for c in categories if c.id == root_id), None)
 
@@ -227,6 +269,15 @@ class CategoryService:
 
             return self._build_tree(root, tree_map)
 
+    def get_category_chain(self, child_id: int) -> list[int]:
+        with CategoryUnitOfWork(self._session) as uow:
+            category = self._get_active_or_404(uow, child_id)
+            categories_list = list(uow.categories.get_all_no_paged())
+            category_map = self._build_category_map(categories_list)
+            parents_chain_id = self._build_parent_chain(category, category_map)
+
+        return parents_chain_id
+
     def get_root_categories(self, offset: int = 0, limit: int = 20):
         with CategoryUnitOfWork(self._session) as uow:
             categories = list(uow.categories.get_all_root_active(offset, limit))
@@ -235,3 +286,14 @@ class CategoryService:
             result = CategoryList(data=data, total=count)
 
         return result
+
+    def _would_create_cycle(self, category, new_parent_id, category_map):
+
+        current = category_map.get(new_parent_id)
+
+        while current:
+            if current.id == category.id:
+                return True
+            current = category_map.get(current.parent_id)
+
+        return False
