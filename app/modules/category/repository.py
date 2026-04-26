@@ -34,6 +34,10 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).all()
 
+    def get_all_no_paged(self) -> Sequence[Category]:
+        statement = select(Category).where(col(Category.deleted_at).is_(None))
+        return self.session.exec(statement).all()
+
     def get_all_root_active(
         self, offset: int = 0, limit: int = 20
     ) -> Sequence[Category]:
@@ -116,11 +120,14 @@ class CategoryRepository(BaseRepository[Category]):
 
     def soft_delete(self, category: Category) -> None:
         category.deleted_at = datetime.now(timezone.utc)
+        category.updated_at = datetime.now(timezone.utc)
+
         self.session.add(category)
         self.session.flush()
 
     def restore(self, category: Category) -> Category:
         category.deleted_at = None
+        category.updated_at = datetime.now(timezone.utc)
         self.session.add(category)
         self.session.flush()
         return category
