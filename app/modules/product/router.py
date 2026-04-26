@@ -32,7 +32,14 @@ def list_all_actives(
 
 @router.get("/search", response_model=ProductList)
 def search(
-    query: Annotated[str, Query(min_length=1, max_length=50)],
+    query: Annotated[
+        str,
+        Query(
+            min_length=3,
+            max_length=50,
+            description="Se necesitan al menos 3 caracteres para hacer una busqueda",
+        ),
+    ],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     svc: ProductService = Depends(get_product_service),
@@ -48,12 +55,33 @@ def get_by_id(
     return svc.get_by_id_with_category(id)
 
 
+@admin_router.delete("/{id}")
+def delete(
+    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
+):
+    return svc.delete(id)
+
+
+@admin_router.patch("/{id}")
+def restore(
+    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
+):
+    return svc.restore(id)
+
+
 @router.post("/", response_model=ProductPublic, status_code=201)
 def create(
     data: ProductCreate,
     svc: ProductService = Depends(get_product_service),
 ):
     return svc.create(data)
+
+
+@router.get("/category/{id}", response_model=ProductList)
+def list_by_category(
+    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
+):
+    return svc.get_by_category(id)
 
 
 @router.patch("/{id}", response_model=ProductPublic)
