@@ -25,7 +25,13 @@ class ProductPublic(SQLModel):
     images_url: str | None
 
 
-class ProductPublicFull(ProductPublic):
+class ProductAdmin(ProductPublic):
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+
+
+class ProductPublicFull(ProductAdmin):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
@@ -35,6 +41,11 @@ class ProductPublicFull(ProductPublic):
 
 class ProductList(SQLModel):
     data: list[ProductPublic]
+    total: int
+
+
+class ProductListAdmin(SQLModel):
+    data: list[ProductAdmin]
     total: int
 
 

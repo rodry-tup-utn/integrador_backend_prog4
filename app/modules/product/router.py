@@ -7,6 +7,8 @@ from app.modules.product.schemas import (
     ProductPublic,
     ProductPublicFull,
     ProductUpdate,
+    ProductAdmin,
+    ProductListAdmin,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -52,7 +54,7 @@ def get_by_id(
     id: Annotated[int, Path(ge=1)],
     svc: ProductService = Depends(get_product_service),
 ):
-    return svc.get_by_id_with_category(id)
+    return svc.get_active_by_id_with_category(id)
 
 
 @admin_router.delete("/{id}")
@@ -62,7 +64,14 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.patch("/{id}")
+@admin_router.get("/{id}", response_model=ProductPublicFull)
+def get_by_id_with_category(
+    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
+):
+    return svc.get_by_id_with_category(id)
+
+
+@admin_router.patch("/{id}", response_model=ProductAdmin)
 def restore(
     id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
 ):
@@ -94,7 +103,7 @@ def update(
     return svc.update(id, data)
 
 
-@admin_router.get("/", response_model=ProductList)
+@admin_router.get("/", response_model=ProductListAdmin)
 def list_all_admin(
     svc: ProductService = Depends(get_product_service),
     offset: Annotated[int, Query(ge=0)] = 0,

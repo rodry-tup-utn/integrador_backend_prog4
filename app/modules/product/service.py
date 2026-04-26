@@ -7,6 +7,8 @@ from app.modules.product.schemas import (
     ProductPublicFull,
     CategoryBase,
     ProductUpdate,
+    ProductAdmin,
+    ProductListAdmin,
 )
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
@@ -49,6 +51,15 @@ class ProductService:
                 f"Producto con id {product_id} no encontrado",
             )
 
+        return product
+
+    def _get_with_category_or_404(self, uow: ProductUnitOfWork, product_id: int):
+        product = uow.products.get_by_id_with_category(product_id)
+        if not product:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"Producto con id {product_id} no encontrado",
+            )
         return product
 
     def _get_category_active_or_404(
@@ -123,13 +134,13 @@ class ProductService:
             result = ProductPublic.model_validate(product)
         return result
 
-    def get_by_id_admin(self, product_id: int) -> ProductPublic:
+    def get_by_id_admin(self, product_id: int) -> ProductAdmin:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_or_404(uow, product_id)
-            result = ProductPublic.model_validate(product)
+            result = ProductAdmin.model_validate(product)
         return result
 
-    def get_by_id_with_category(self, product_id: int) -> ProductPublicFull:
+    def get_active_by_id_with_category(self, product_id: int) -> ProductPublicFull:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_with_category_or_404(uow, product_id)
             categories = [
@@ -168,13 +179,13 @@ class ProductService:
 
         return result
 
-    def list_all_admin(self, offset: int = 0, limit: int = 20) -> ProductList:
+    def list_all_admin(self, offset: int = 0, limit: int = 20) -> ProductListAdmin:
         with ProductUnitOfWork(self._session) as uow:
             products = uow.products.get_all(offset, limit)
             total = uow.products.count()
 
-            data = [ProductPublic.model_validate(p) for p in products]
-            result = ProductList(data=data, total=total)
+            data = [ProductAdmin.model_validate(p) for p in products]
+            result = ProductListAdmin(data=data, total=total)
         return result
 
     def update(self, product_id: int, data: ProductUpdate) -> ProductPublic:
@@ -229,15 +240,15 @@ class ProductService:
 
     def search_all_by_name(
         self, query: str, offset: int = 0, limit: int = 20
-    ) -> ProductList:
+    ) -> ProductListAdmin:
         query = query.strip()
         with ProductUnitOfWork(self._session) as uow:
             products = uow.products.search_by_name(query, offset, limit)
             count = uow.products.count_search_by_name(query)
 
-            result = [ProductPublic.model_validate(p) for p in products]
+            result = [ProductAdmin.model_validate(p) for p in products]
 
-        return ProductList(data=result, total=count)
+        return ProductListAdmin(data=result, total=count)
 
     def delete(self, product_id: int):
         with ProductUnitOfWork(self._session) as uow:
@@ -246,7 +257,7 @@ class ProductService:
 
         return status.HTTP_204_NO_CONTENT
 
-    def restore(self, product_id: int) -> ProductPublic:
+    def restore(self, product_id: int) -> ProductAdmin:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_or_404(uow, product_id)
             if product.deleted_at is None:
@@ -255,7 +266,7 @@ class ProductService:
                     "No se puede restaurar un producto que no está eliminado",
                 )
             uow.products.restore(product)
-            result = ProductPublic.model_validate(product)
+            result = ProductAdmin.model_validate(product)
         return result
 
     def get_by_category(
@@ -270,4 +281,33 @@ class ProductService:
             count = uow.products.count_by_category(category_id)
 
             result = ProductList(data=data, total=count)
+        return result
+
+    def get_by_id_with_category(self, product_id: int) -> ProductPublicFull:
+        with ProductUnitOfWork(self._session) as uow:
+            product = self._get_with_category_or_404(uow, product_id)
+            categories = [
+                CategoryBase.model_validate(link.category)
+                for link in product.category_links
+            ]
+            primary = next(
+                (
+                    CategoryBase.model_validate(link.category)
+                    for link in product.category_links
+                    if link.is_primary
+                )
+            )
+
+            result = ProductPublicFull(
+                id=product.id,  # type:ignore
+                name=product.name,
+                base_price=product.base_price,
+                description=product.description,
+                created_at=product.created_at,
+                images_url=product.images_url,
+                updated_at=product.updated_at,
+                deleted_at=product.deleted_at,
+                primary_category=primary,
+                categories=categories,
+            )
         return result
