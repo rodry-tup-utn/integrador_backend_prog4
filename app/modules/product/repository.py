@@ -53,6 +53,18 @@ class ProductRepository(BaseRepository[Product]):
         )
         return self.session.exec(statement).first()
 
+    def get_by_id_with_category(self, product_id: int) -> Product | None:
+        statement = (
+            select(Product)
+            .where(Product.id == product_id)
+            .options(
+                selectinload(Product.category_links).selectinload(
+                    ProductCategoryLink.category
+                )
+            )
+        )
+        return self.session.exec(statement).first()
+
     def get_by_name(self, product_name: str) -> Product | None:
         statement = select(Product).where(
             func.lower(Product.name) == product_name.lower()
