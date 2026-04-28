@@ -96,7 +96,7 @@ class ProductIngredientService:
                     )
 
             return ProductWithIngredients(
-                product_id=product.id, name=product.name, ingredients=ingredients
+                product_id=product.id, name=product.name, ingredients=ingredients  # type: ignore
             )
 
     # -- Update is_removable --------------------------------------------------
@@ -115,4 +115,9 @@ class ProductIngredientService:
     def remove_ingredient(self, product_id: int, ingredient_id: int) -> None:
         with ProductIngredientUnitOfWork(self._session) as uow:
             relation = self._get_relation_or_404(uow, product_id, ingredient_id)
+            if not relation.is_removable:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "No puede eliminarse un ingrediente marcado como 'no removible'",
+                )
             uow.relationRepo.remove(relation)
