@@ -1,6 +1,6 @@
 # Entrega parcial 1 - link al video
 
-[text](https://drive.google.com/drive/folders/1kaCuwf9_A2KVDeiCYk1yYTer775apSkW?usp=sharing)
+[Link a la carpeta del video](https://drive.google.com/drive/folders/1kaCuwf9_A2KVDeiCYk1yYTer775apSkW?usp=sharing)
 
 # 📦 API Backend - Programación IV
 
