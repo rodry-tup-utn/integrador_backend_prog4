@@ -13,10 +13,10 @@ from app.modules.product.schemas import (
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.modules.product.models import Category
+    from app.modules.category.models import Category
 
 
 class ProductService:
