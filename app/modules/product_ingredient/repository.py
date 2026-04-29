@@ -1,5 +1,6 @@
 from sqlmodel import Session, select
 from typing import Sequence
+from sqlalchemy.orm import joinedload
 
 from app.core.repository import BaseRepository
 from app.modules.product_ingredient.models import ProductIngredient
@@ -25,8 +26,13 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
     def get_ingredients_by_product(
         self, product_id: int
     ) -> Sequence[ProductIngredient]:
-        statement = select(ProductIngredient).where(
-            ProductIngredient.product_id == product_id
+        statement = (
+            select(ProductIngredient)
+            .where(ProductIngredient.product_id == product_id)
+            .options(
+                joinedload(ProductIngredient.product),
+                joinedload(ProductIngredient.ingredient),
+            )
         )
 
         return self.session.exec(statement).all()
