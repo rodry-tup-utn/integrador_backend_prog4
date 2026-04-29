@@ -181,3 +181,9 @@ class ProductRepository(BaseRepository[Product]):
             .limit(limit)
         )
         return self.session.exec(statement).all()
+
+    def exists_active_by_id(self, product_id) -> bool:
+        statement = select(Product.id).where(
+            Product.id == product_id, col(Product.deleted_at).is_(None)
+        )
+        return self.session.exec(statement).first() is not None
