@@ -34,7 +34,7 @@ class ProductIngredientService:
     def _assert_product_exists(
         self, uow: ProductIngredientUnitOfWork, product_id: int
     ) -> None:
-        if not uow.productRepo.get_active_by_id(product_id):
+        if not uow.productRepo.exists_active_by_id(product_id):
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND,
                 f"Producto con id: {product_id} no encontrado",
@@ -82,21 +82,26 @@ class ProductIngredientService:
             product = uow.productRepo.get_active_by_id(product_id)
             relations = uow.relationRepo.get_ingredients_by_product(product_id)
 
-            ingredients = []
-            for rel in relations:
-                ingredient = uow.ingredientRepo.get_by_id(rel.ingredient_id)
-                if ingredient:
-                    ingredients.append(
-                        IngredientInProduct(
-                            ingredient_id=ingredient.id,
-                            name=ingredient.name,
-                            description=ingredient.description,
-                            is_removable=rel.is_removable,
-                        )
-                    )
+            if not relations:
 
+                return ProductWithIngredients(product_id=product.id, name=product.name, ingredients=[])  # type: ignore
+
+            ingredients = [
+                IngredientInProduct(
+                    ingredient_id=rel.ingredient.id,
+                    name=rel.ingredient.name,
+                    description=rel.ingredient.description,
+                    is_removable=rel.is_removable,
+                )
+                for rel in relations
+                if rel.ingredient
+            ]
+
+            first_rel = relations[0]
             return ProductWithIngredients(
-                product_id=product.id, name=product.name, ingredients=ingredients  # type: ignore
+                product_id=product.id,  # type: ignore
+                name=first_rel.product.name,
+                ingredients=ingredients,
             )
 
     # -- Update is_removable --------------------------------------------------
