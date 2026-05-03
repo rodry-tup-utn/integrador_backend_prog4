@@ -8,6 +8,7 @@ from app.modules.ingredient.schemas import (
     IngredientList,
     IngredientPublic,
     IngredientUpdate,
+    IngredientPrivate,
 )
 
 from app.modules.ingredient.unit_of_work import IngredientUnitOfWork
@@ -53,12 +54,12 @@ class IngredientService:
 
     # -- Create --------------------------------------------------
 
-    def create_ingredient(self, data: IngredientCreate) -> IngredientPublic:
+    def create_ingredient(self, data: IngredientCreate) -> IngredientPrivate:
         with IngredientUnitOfWork(self._session) as uow:
             self._assert_name_unique(uow, data.name)
             ingredient = Ingredient.model_validate(data)
             uow.ingredientRepo.add(ingredient)
-            return IngredientPublic.model_validate(ingredient)
+            return IngredientPrivate.model_validate(ingredient)
 
     # -- Get by id --------------------------------------------------
 
@@ -67,10 +68,10 @@ class IngredientService:
             ingredient = self._get_active_or_404(uow, ingredient_id)
             return IngredientPublic.model_validate(ingredient)
 
-    def get_by_id_admin(self, ingredient_id: int) -> IngredientPublic:
+    def get_by_id_admin(self, ingredient_id: int) -> IngredientPrivate:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_or_404(uow, ingredient_id)
-            return IngredientPublic.model_validate(ingredient)
+            return IngredientPrivate.model_validate(ingredient)
 
     # -- List --------------------------------------------------
 
@@ -92,7 +93,7 @@ class IngredientService:
 
     def update_ingredient(
         self, ingredient_id: int, data: IngredientUpdate
-    ) -> IngredientPublic:
+    ) -> IngredientPrivate:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_active_or_404(uow, ingredient_id)
 
@@ -105,7 +106,7 @@ class IngredientService:
 
             ingredient.updated_at = datetime.now(timezone.utc)
             uow.ingredientRepo.add(ingredient)
-            return IngredientPublic.model_validate(ingredient)
+            return IngredientPrivate.model_validate(ingredient)
 
     # -- Delete --------------------------------------------------
 
@@ -150,7 +151,7 @@ class IngredientService:
 
     # -- Restore --------------------------------------------------
 
-    def restore_deleted_ingredient(self, ingredient_id: int) -> IngredientPublic:
+    def restore_deleted_ingredient(self, ingredient_id: int) -> IngredientPrivate:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_or_404(uow, ingredient_id)
 
@@ -160,4 +161,4 @@ class IngredientService:
                 )
 
             uow.ingredientRepo.restore_ingredient(ingredient)
-            return IngredientPublic.model_validate(ingredient)
+            return IngredientPrivate.model_validate(ingredient)
