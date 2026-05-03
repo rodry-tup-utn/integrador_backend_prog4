@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     postgres_db: str = "db_integrador"
     postgres_host: str = "localhost"
     postgres_port: int = 5433
+    secret_key: str = "secret-key-dev"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
 
     @computed_field
     @property
