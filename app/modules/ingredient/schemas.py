@@ -19,6 +19,12 @@ class IngredientPublic(SQLModel):
     deleted_at: datetime | None
 
 
+class IngredientPrivate(IngredientPublic):
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+
+
 class IngredientUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     description: str | None = Field(default=None, min_length=5, max_length=500)
