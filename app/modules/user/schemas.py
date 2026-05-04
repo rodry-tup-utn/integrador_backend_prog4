@@ -27,13 +27,11 @@ class UserUpdate(SQLModel):
     name: str | None = None
     lastname: str | None = None
     phone_number: str | None = None
-    name: str | None = None
     email: str | None = None
 
 
 class UserPrivate(UserBase):
     role: Role
-    deleted_at: datetime | None
 
 
 class UserLogin(SQLModel):
