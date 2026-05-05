@@ -41,7 +41,7 @@ class UserLogin(SQLModel):
 
 class UserAuthCredentials(SQLModel):
     id: int
-    email: str
+    name: str
     role: Role
     hashed_pass: str
 

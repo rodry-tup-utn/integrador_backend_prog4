@@ -64,7 +64,7 @@ class UserRepository(BaseRepository["User"]):
         return user
 
     def get_auth_credential(self, email: str) -> UserAuthCredentials | None:
-        statement = select(User.id, User.role, User.hashed_pass, User.email).where(
+        statement = select(User.id, User.role, User.hashed_pass, User.name).where(
             User.email == email, col(User.deleted_at).is_(None)
         )
         row = self.session.exec(statement).first()
@@ -73,5 +73,5 @@ class UserRepository(BaseRepository["User"]):
             return None
 
         return UserAuthCredentials(
-            id=row.id, hashed_pass=row.hashed_pass, role=row.role, email=row.email
+            id=row.id, hashed_pass=row.hashed_pass, role=row.role, name=row.name
         )

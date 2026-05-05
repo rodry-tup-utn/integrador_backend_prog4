@@ -31,12 +31,12 @@ def get_current_user_token(
         )
         user_id = payload.get("sub")
         role = payload.get("role")
-        email = payload.get("email")
+        name = payload.get("name")
 
-        if user_id is None or role is None or email is None:
+        if user_id is None or role is None or name is None:
             raise credentials_exception
 
-        return UserTokenData(id=int(user_id), role=role, email=email)
+        return UserTokenData(id=int(user_id), role=role, name=name)
     except jwt.PyJWTError:
         raise credentials_exception
 

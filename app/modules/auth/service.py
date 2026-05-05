@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from app.modules.user.service import UserService
-from app.modules.auth.schemas import Token, JWTPayload
+from app.modules.auth.schemas import Token, JWTPayload, UserTokenData
 from app.core.security import verify_password, create_access_token
 
 
@@ -28,9 +28,16 @@ class AuthService:
         payload = JWTPayload(
             sub=str(user_credentials.id),
             role=user_credentials.role,
-            email=user_credentials.email,
+            name=user_credentials.name,
         )
 
         access_token = create_access_token(payload)
 
-        return Token(access_token=access_token)
+        return Token(
+            access_token=access_token,
+            user=UserTokenData(
+                id=user_credentials.id,
+                name=user_credentials.name,
+                role=user_credentials.role,
+            ),
+        )
