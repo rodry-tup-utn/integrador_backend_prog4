@@ -11,7 +11,7 @@ from app.modules.user.schemas import (
 from typing import Annotated
 from app.modules.user.models import Role
 from app.core.database import get_session
-from app.modules.auth.dependencies import get_current_user_token, get_current_admin_user
+from app.modules.auth.dependencies import get_token_payload, get_current_admin_user
 
 
 def get_user_service(session: Session = Depends(get_session)):
@@ -29,7 +29,7 @@ admin_router = APIRouter(
 user_router = APIRouter(
     prefix="/profile",
     tags=["Usuarios - Sesion"],
-    dependencies=[Depends(get_current_user_token)],
+    dependencies=[Depends(get_token_payload)],
 )
 
 
@@ -44,7 +44,7 @@ admin_router = APIRouter(
 user_router = APIRouter(
     prefix="/profile",
     tags=["Usuarios - Sesion"],
-    dependencies=[Depends(get_current_user_token)],
+    dependencies=[Depends(get_token_payload)],
 )
 
 # --- USER ROUTES (SESIÓN) ---
@@ -52,7 +52,7 @@ user_router = APIRouter(
 
 @user_router.get("/me", response_model=UserPrivate)
 def get_my_profile(
-    user: UserPrivate = Depends(get_current_user_token),
+    user: UserPrivate = Depends(get_token_payload),
     svc: UserService = Depends(get_user_service),
 ):
     return svc.get_active_by_id(user.id)
@@ -61,7 +61,7 @@ def get_my_profile(
 @user_router.patch("/update", response_model=UserPrivate)
 def update_profile(
     data: UserUpdate,
-    user: UserPrivate = Depends(get_current_user_token),
+    user: UserPrivate = Depends(get_token_payload),
     svc: UserService = Depends(get_user_service),
 ):
     return svc.update_profile(user.id, data)
