@@ -9,6 +9,7 @@ from app.modules.ingredient.schemas import (
     IngredientPublic,
     IngredientUpdate,
     IngredientPrivate,
+    IngredientListFull,
 )
 
 from app.modules.ingredient.unit_of_work import IngredientUnitOfWork
@@ -82,12 +83,12 @@ class IngredientService:
             data = [IngredientPublic.model_validate(i) for i in ingredients]
             return IngredientList(data=data, total=total)
 
-    def list_all_admin(self, offset: int = 0, limit: int = 20) -> IngredientList:
+    def list_all_admin(self, offset: int = 0, limit: int = 20) -> IngredientListFull:
         with IngredientUnitOfWork(self._session) as uow:
             ingredients = uow.ingredientRepo.get_all(offset, limit)
             total = uow.ingredientRepo.count()
-            data = [IngredientPublic.model_validate(i) for i in ingredients]
-            return IngredientList(data=data, total=total)
+            data = [IngredientPrivate.model_validate(i) for i in ingredients]
+            return IngredientListFull(data=data, total=total)
 
     # -- Update --------------------------------------------------
 
@@ -135,19 +136,19 @@ class IngredientService:
 
     def search_ingredient_admin(
         self, query: str, offset: int = 0, limit: int = 20
-    ) -> IngredientList:
+    ) -> IngredientListFull:
         query = query.strip()
 
         if not query:
-            return IngredientList(data=[], total=0)
+            return IngredientListFull(data=[], total=0)
 
         with IngredientUnitOfWork(self._session) as uow:
             ingredients = uow.ingredientRepo.search_ingredients_by_name(
                 query, offset, limit
             )
             total = uow.ingredientRepo.count_search_by_name(query)
-            data = [IngredientPublic.model_validate(i) for i in ingredients]
-            return IngredientList(data=data, total=total)
+            data = [IngredientPrivate.model_validate(i) for i in ingredients]
+            return IngredientListFull(data=data, total=total)
 
     # -- Restore --------------------------------------------------
 

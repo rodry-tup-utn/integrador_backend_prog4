@@ -31,3 +31,8 @@ class IngredientUpdate(SQLModel):
 class IngredientList(SQLModel):
     data: List[IngredientPublic]
     total: int
+
+
+class IngredientListFull(SQLModel):
+    data: List[IngredientPrivate]
+    total: int

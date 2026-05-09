@@ -10,6 +10,7 @@ from app.modules.ingredient.schemas import (
     IngredientPublic,
     IngredientUpdate,
     IngredientPrivate,
+    IngredientListFull,
 )
 from app.modules.auth.dependencies import get_current_admin_user
 
@@ -63,7 +64,7 @@ def get_by_id(
 # -- Admin Endpoints --------------------------------------------------
 
 
-@admin_router.get("/", response_model=IngredientList)
+@admin_router.get("/", response_model=IngredientListFull)
 def list_all_admin(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -79,7 +80,7 @@ def create(
     return svc.create_ingredient(data)
 
 
-@admin_router.get("/search", response_model=IngredientList)
+@admin_router.get("/search", response_model=IngredientListFull)
 def search_admin(
     query: Annotated[str, Query(min_length=1, max_length=50)],
     offset: Annotated[int, Query(ge=0)] = 0,
