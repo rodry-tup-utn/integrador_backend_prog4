@@ -85,7 +85,7 @@ class IngredientService:
 
     def list_all_admin(self, offset: int = 0, limit: int = 20) -> IngredientListFull:
         with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.get_all(offset, limit)
+            ingredients = uow.ingredientRepo.get_all_ordered(offset, limit)
             total = uow.ingredientRepo.count()
             data = [IngredientPrivate.model_validate(i) for i in ingredients]
             return IngredientListFull(data=data, total=total)
