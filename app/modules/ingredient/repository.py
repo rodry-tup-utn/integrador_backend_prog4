@@ -28,6 +28,15 @@ class IngredientRepository(BaseRepository[Ingredient]):
 
         return self.session.exec(statement).first()
 
+    def get_all_ordered(self, offset: int = 0, limit: int = 20) -> Sequence[Ingredient]:
+        statement = (
+            select(Ingredient)
+            .order_by(func.lower(Ingredient.name))
+            .offset(offset)
+            .limit(limit)
+        )
+        return self.session.exec(statement).all()
+
     # Devuelve una lista paginada con todos los ingredientes activos, ordenados alfabéticamente
     def get_all_active_ingredients(
         self, offset: int = 0, limit: int = 20
