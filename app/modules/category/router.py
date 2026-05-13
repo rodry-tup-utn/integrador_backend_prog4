@@ -70,14 +70,6 @@ def get_children_list(
     return svc.get_full_tree_by_id(id, max_depth)
 
 
-@router.post("/", response_model=CategoryPublic, status_code=201)
-def create(
-    data: CategoryCreate,
-    svc: CategoryService = Depends(get_category_service),
-):
-    return svc.create(data)
-
-
 @router.patch("/{id}", response_model=CategoryPublic)
 def update(
     id: Annotated[int, Path(ge=1)],
@@ -102,6 +94,14 @@ def list_all_admin(
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.list_all_admin(offset, limit)
+
+
+@admin_router.post("/", response_model=CategoryPublic, status_code=201)
+def create(
+    data: CategoryCreate,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.create(data)
 
 
 @admin_router.get("/search", response_model=CategoryList)
