@@ -7,6 +7,7 @@ class ProductCreate(SQLModel):
     name: str = Field(max_length=150, min_length=3)
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
+    stock: int | None = Field(ge=0, default=0)
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int = Field(ge=1)
 
@@ -20,9 +21,11 @@ class CategoryBase(SQLModel):
 class ProductPublic(SQLModel):
     id: int
     base_price: Decimal
+    stock: int
     name: str
     description: str | None
     images_url: str | None
+    available: bool
 
 
 class ProductAdmin(ProductPublic):
@@ -55,3 +58,4 @@ class ProductUpdate(SQLModel):
     base_price: Decimal | None = Field(default=None, gt=0)
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int | None = Field(default=None, ge=1)
+    stock: int | None = Field(ge=0, default=None)
