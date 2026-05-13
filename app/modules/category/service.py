@@ -5,8 +5,7 @@ from app.modules.category.schemas import (
     CategoryList,
     CategoryPublic,
     CategoryUpdate,
-    CategoryPublicTree,
-    CategoryTree,
+    CategoryNode,
 )
 from sqlmodel import Session
 from app.modules.category.unit_of_work import CategoryUnitOfWork
@@ -210,38 +209,6 @@ class CategoryService:
 
         return tree
 
-    # Reemplaza _build_tree y _a_nodo por esta versión única
-    def _build_tree_recursive(
-        self,
-        category: Category,
-        tree_map: dict[int | None, list[Category]],
-        current_depth: int,
-        max_depth: int,
-        visited: set[int],
-    ) -> CategoryTree:
-
-        if category.id in visited:
-            raise HTTPException(400, "Ciclo detectado en la base de datos")
-        visited.add(category.id)  # type: ignore
-
-        hijos_formateados = []
-        if current_depth < max_depth:
-            hijos_raw = tree_map.get(category.id, [])
-            hijos_formateados = [
-                self._build_tree_recursive(
-                    hijo, tree_map, current_depth + 1, max_depth, visited.copy()
-                )
-                for hijo in hijos_raw
-                if hijo.deleted_at is None
-            ]
-
-        return CategoryTree(
-            id=category.id,  # type: ignore
-            name=category.name,
-            parent_id=category.parent_id,
-            children=hijos_formateados,
-        )
-
     def _build_category_map(self, categories: list[Category]) -> dict[int, Category]:
         return {c.id: c for c in categories if c.id is not None}
 
@@ -269,17 +236,6 @@ class CategoryService:
             current = category_map.get(current.parent_id)
 
         return result
-
-    def get_full_tree_by_id(self, root_id: int, max_depth: int = 3) -> CategoryTree:
-        with CategoryUnitOfWork(self._session) as uow:
-            categorias = list(uow.categories.get_all_active_no_paged())
-            root = next((c for c in categorias if c.id == root_id), None)
-
-            if not root:
-                raise HTTPException(404, "Categoría no encontrada")
-
-            tree_map = self._build_tree_map(categorias)
-            return self._build_tree_recursive(root, tree_map, 0, max_depth, set())
 
     def get_category_chain(self, child_id: int) -> list[int]:
         with CategoryUnitOfWork(self._session) as uow:
@@ -310,13 +266,83 @@ class CategoryService:
 
         return False
 
-    def get_full_tree(self, max_depth: int = 3) -> list[CategoryTree]:
+    def _build_has_children_set(self, categories: list[Category]) -> set[int]:
+        return {c.parent_id for c in categories if c.parent_id is not None}
+
+    def _build_node_tree_recursive(
+        self,
+        category: Category,
+        tree_map: dict[int | None, list[Category]],
+        has_children_set: set[int],
+        current_depth: int,
+        max_depth: int,
+        visited: set[int],
+    ) -> CategoryNode:
+
+        if category.id in visited:
+            raise HTTPException(400, "Ciclo detectado en la base de datos")
+        visited.add(category.id)  # type: ignore
+
+        has_children = category.id in has_children_set
+        hijos_formateados = []
+
+        if current_depth < max_depth and has_children:
+            hijos_raw = tree_map.get(category.id, [])
+            hijos_formateados = [
+                self._build_node_tree_recursive(
+                    hijo, tree_map, has_children_set, current_depth + 1, max_depth, visited.copy()
+                )
+                for hijo in hijos_raw
+                if hijo.deleted_at is None
+            ]
+
+        return CategoryNode(
+            id=category.id,  # type: ignore
+            name=category.name,
+            parent_id=category.parent_id,
+            has_children=has_children,
+            children=hijos_formateados,
+        )
+
+    def get_node_tree_from_root(self, max_depth: int = 2) -> list[CategoryNode]:
         with CategoryUnitOfWork(self._session) as uow:
             categorias = list(uow.categories.get_all_active_no_paged())
             tree_map = self._build_tree_map(categorias)
+            has_children_set = self._build_has_children_set(categorias)
             raices = [c for c in categorias if c.parent_id is None]
 
             return [
-                self._build_tree_recursive(r, tree_map, 0, max_depth, set())
+                self._build_node_tree_recursive(r, tree_map, has_children_set, 0, max_depth, set())
                 for r in raices
+            ]
+
+    def get_node_tree_from_id(self, root_id: int, max_depth: int = 2) -> CategoryNode:
+        with CategoryUnitOfWork(self._session) as uow:
+            categorias = list(uow.categories.get_all_active_no_paged())
+            root = next((c for c in categorias if c.id == root_id), None)
+
+            if not root:
+                raise HTTPException(404, "Categoría no encontrada")
+
+            tree_map = self._build_tree_map(categorias)
+            has_children_set = self._build_has_children_set(categorias)
+
+            return self._build_node_tree_recursive(root, tree_map, has_children_set, 0, max_depth, set())
+
+    def get_node_children_from_id(self, parent_id: int, max_depth: int = 2) -> list[CategoryNode]:
+        with CategoryUnitOfWork(self._session) as uow:
+            categorias = list(uow.categories.get_all_active_no_paged())
+            parent = next((c for c in categorias if c.id == parent_id), None)
+
+            if not parent:
+                raise HTTPException(404, "Categoría no encontrada")
+
+            tree_map = self._build_tree_map(categorias)
+            has_children_set = self._build_has_children_set(categorias)
+            hijos_raw = tree_map.get(parent_id, [])
+
+            return [
+                self._build_node_tree_recursive(hijo, tree_map, has_children_set, 0, max_depth, set())
+                for hijo in hijos_raw
+                if hijo.deleted_at is None
             ]
