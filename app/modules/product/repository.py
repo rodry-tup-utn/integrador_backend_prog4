@@ -6,6 +6,7 @@ from sqlalchemy import func
 from datetime import datetime, timezone
 from sqlalchemy.orm import selectinload
 from app.modules.product_category.models import ProductCategoryLink
+from app.modules.product_ingredient.models import ProductIngredient
 
 
 class ProductRepository(BaseRepository[Product]):
@@ -40,29 +41,20 @@ class ProductRepository(BaseRepository[Product]):
         )
         return self.session.exec(statement).first()
 
-    def get_by_id_active_with_category(self, product_id: int) -> Product | None:
+    def get_by_id_with_details(
+        self, product_id: int, active_only: bool = False
+    ) -> Product | None:
         statement = (
             select(Product)
-            .where(col(Product.deleted_at).is_(None))
             .where(Product.id == product_id)
             .options(
-                selectinload(Product.category_links).selectinload(
-                    ProductCategoryLink.category
-                )
+                selectinload(Product.category_links).selectinload(ProductCategoryLink.category),
+                selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient),
             )
         )
-        return self.session.exec(statement).first()
+        if active_only:
+            statement = statement.where(col(Product.deleted_at).is_(None))
 
-    def get_by_id_with_category(self, product_id: int) -> Product | None:
-        statement = (
-            select(Product)
-            .where(Product.id == product_id)
-            .options(
-                selectinload(Product.category_links).selectinload(
-                    ProductCategoryLink.category
-                )
-            )
-        )
         return self.session.exec(statement).first()
 
     def get_by_name(self, product_name: str) -> Product | None:
