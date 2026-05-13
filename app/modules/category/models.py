@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import Column, Integer, ForeignKey
 
@@ -31,6 +31,6 @@ class Category(SQLModel, table=True):
 
     product_links: List["ProductCategoryLink"] = Relationship(back_populates="category")
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
