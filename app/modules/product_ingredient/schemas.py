@@ -29,3 +29,12 @@ class ProductWithIngredients(SQLModel):
     product_id: int
     name: str
     ingredients: List[IngredientInProduct]
+
+
+class ProductIngredientBatchItem(SQLModel):
+    ingredient_id: int
+    is_removable: bool = Field(default=False)
+
+
+class ProductIngredientBatchCreate(SQLModel):
+    ingredients: list[ProductIngredientBatchItem]
