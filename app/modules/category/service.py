@@ -246,9 +246,18 @@ class CategoryService:
 
         return parents_chain_id
 
-    def get_root_categories(self, offset: int = 0, limit: int = 20):
+    def get_active_root_categories(self, offset: int = 0, limit: int = 20):
         with CategoryUnitOfWork(self._session) as uow:
             categories = list(uow.categories.get_all_root_active(offset, limit))
+            data = [CategoryPublic.model_validate(c) for c in categories]
+            count = uow.categories.count_root_active()
+            result = CategoryList(data=data, total=count)
+
+        return result
+
+    def get_root_categories(self, offset: int = 0, limit: int = 20):
+        with CategoryUnitOfWork(self._session) as uow:
+            categories = list(uow.categories.get_all_root(offset, limit))
             data = [CategoryPublic.model_validate(c) for c in categories]
             count = uow.categories.count_root_active()
             result = CategoryList(data=data, total=count)
@@ -290,7 +299,12 @@ class CategoryService:
             hijos_raw = tree_map.get(category.id, [])
             hijos_formateados = [
                 self._build_node_tree_recursive(
-                    hijo, tree_map, has_children_set, current_depth + 1, max_depth, visited.copy()
+                    hijo,
+                    tree_map,
+                    has_children_set,
+                    current_depth + 1,
+                    max_depth,
+                    visited.copy(),
                 )
                 for hijo in hijos_raw
                 if hijo.deleted_at is None
@@ -312,7 +326,9 @@ class CategoryService:
             raices = [c for c in categorias if c.parent_id is None]
 
             return [
-                self._build_node_tree_recursive(r, tree_map, has_children_set, 0, max_depth, set())
+                self._build_node_tree_recursive(
+                    r, tree_map, has_children_set, 0, max_depth, set()
+                )
                 for r in raices
             ]
 
@@ -327,9 +343,13 @@ class CategoryService:
             tree_map = self._build_tree_map(categorias)
             has_children_set = self._build_has_children_set(categorias)
 
-            return self._build_node_tree_recursive(root, tree_map, has_children_set, 0, max_depth, set())
+            return self._build_node_tree_recursive(
+                root, tree_map, has_children_set, 0, max_depth, set()
+            )
 
-    def get_node_children_from_id(self, parent_id: int, max_depth: int = 2) -> list[CategoryNode]:
+    def get_node_children_from_id(
+        self, parent_id: int, max_depth: int = 2
+    ) -> list[CategoryNode]:
         with CategoryUnitOfWork(self._session) as uow:
             categorias = list(uow.categories.get_all_active_no_paged())
             parent = next((c for c in categorias if c.id == parent_id), None)
@@ -342,7 +362,9 @@ class CategoryService:
             hijos_raw = tree_map.get(parent_id, [])
 
             return [
-                self._build_node_tree_recursive(hijo, tree_map, has_children_set, 0, max_depth, set())
+                self._build_node_tree_recursive(
+                    hijo, tree_map, has_children_set, 0, max_depth, set()
+                )
                 for hijo in hijos_raw
                 if hijo.deleted_at is None
             ]

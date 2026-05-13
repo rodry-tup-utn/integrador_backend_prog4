@@ -50,7 +50,7 @@ def list_root_active(
     limit: Annotated[int, Query(le=100)] = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.get_root_categories(offset, limit)
+    return svc.get_active_root_categories(offset, limit)
 
 
 @router.get("/nodes/root", response_model=list[CategoryNode])
@@ -112,6 +112,15 @@ def search_admin(
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.search_all_by_name(query, offset, limit)
+
+
+@admin_router.get("/root", response_model=CategoryList)
+def list_root(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(le=100)] = 20,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_root_categories(offset, limit)
 
 
 @admin_router.patch("/{id}/restore", response_model=CategoryPublic)

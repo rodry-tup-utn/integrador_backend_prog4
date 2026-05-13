@@ -42,6 +42,16 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).all()
 
+    def get_all_root(self, offset: int = 0, limit: int = 20) -> Sequence[Category]:
+        statement = (
+            select(Category)
+            .where(col(Category.parent_id).is_(None))
+            .order_by(func.lower(Category.name))
+            .offset(offset)
+            .limit(limit)
+        )
+        return self.session.exec(statement).all()
+
     def get_all_root_active(
         self, offset: int = 0, limit: int = 20
     ) -> Sequence[Category]:
