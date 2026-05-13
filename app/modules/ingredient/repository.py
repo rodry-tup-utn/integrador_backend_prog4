@@ -133,3 +133,11 @@ class IngredientRepository(BaseRepository[Ingredient]):
         self.session.add(ingredient)
         self.session.flush()
         return ingredient
+
+    def get_active_by_ids(self, ingredients_ids: list[int]) -> Sequence[Ingredient]:
+        statement = select(Ingredient).where(
+            col(Ingredient.id).in_(ingredients_ids),
+            col(Ingredient.deleted_at).is_(None),
+        )
+
+        return self.session.exec(statement).all()
