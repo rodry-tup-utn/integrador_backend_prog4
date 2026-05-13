@@ -31,7 +31,7 @@ def list_all_actives(
     limit: int = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.list_all(offset, limit)
+    return svc.list_all_actives(offset, limit)
 
 
 @router.get("/search", response_model=CategoryList)

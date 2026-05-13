@@ -73,9 +73,9 @@ class CategoryService:
 
     # List
 
-    def list_all(self, offset: int = 0, limit: int = 20) -> CategoryList:
+    def list_all_actives(self, offset: int = 0, limit: int = 20) -> CategoryList:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = uow.categories.get_all_active(offset, limit)
+            categories = uow.categories.get_all_ordered(offset, limit, True)
             total = uow.categories.count_active()
 
             data = [CategoryPublic.model_validate(c) for c in categories]
@@ -85,7 +85,7 @@ class CategoryService:
 
     def list_all_admin(self, offset: int = 0, limit: int = 20) -> CategoryList:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = uow.categories.get_all(offset, limit)
+            categories = uow.categories.get_all_ordered(offset, limit)
             total = uow.categories.count()
 
             data = [CategoryPublic.model_validate(c) for c in categories]
