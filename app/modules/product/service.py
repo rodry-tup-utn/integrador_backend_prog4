@@ -4,11 +4,13 @@ from app.modules.product.schemas import (
     ProductCreate,
     ProductList,
     ProductPublic,
-    ProductPublicFull,
+    ProductDetail,
     CategoryBase,
     ProductUpdate,
     ProductAdmin,
     ProductListAdmin,
+    IngredientBase,
+    ProductAdminDetail,
 )
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
@@ -19,6 +21,12 @@ if TYPE_CHECKING:
     from app.modules.category.models import Category
 
 
+def not_found_exception(name: str, id: int):
+    raise HTTPException(
+        status.HTTP_404_NOT_FOUND, f"{name.capitalize()} con id {id} no encontrado"
+    )
+
+
 class ProductService:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -26,40 +34,14 @@ class ProductService:
     def _get_or_404(self, uow: ProductUnitOfWork, product_id: int) -> Product:
         product = uow.products.get_by_id(product_id)
         if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Producto con id {product_id} no encontrado",
-            )
+            raise not_found_exception("Producto", product_id)
         return product
 
     def _get_active_or_404(self, uow: ProductUnitOfWork, product_id: int) -> Product:
         product = uow.products.get_active_by_id(product_id)
         if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Producto con id {product_id} no encontrado",
-            )
-        return product
+            raise not_found_exception("Producto", product_id)
 
-    def _get_active_with_category_or_404(
-        self, uow: ProductUnitOfWork, product_id: int
-    ) -> Product:
-        product = uow.products.get_by_id_active_with_category(product_id)
-        if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Producto con id {product_id} no encontrado",
-            )
-
-        return product
-
-    def _get_with_category_or_404(self, uow: ProductUnitOfWork, product_id: int):
-        product = uow.products.get_by_id_with_category(product_id)
-        if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Producto con id {product_id} no encontrado",
-            )
         return product
 
     def _get_category_active_or_404(
@@ -67,9 +49,7 @@ class ProductService:
     ) -> "Category":
         category = uow.categories.get_by_id_active(category_id)
         if not category:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, f"Categoria id {category_id} no econtrada"
-            )
+            raise not_found_exception("categoria", category_id)
         return category
 
     def _assert_name_unique(self, uow: ProductUnitOfWork, product_name: str):
@@ -79,6 +59,35 @@ class ProductService:
                 status.HTTP_409_CONFLICT,
                 f"El producto con nombre {product_name} ya existe",
             )
+
+    def _get_details_or_404(
+        self, uow: ProductUnitOfWork, product_id: int, active_only: bool
+    ) -> tuple[Product, list[CategoryBase], CategoryBase, list[IngredientBase]]:
+        product = uow.products.get_by_id_with_details(
+            product_id, active_only=active_only
+        )
+        if not product:
+            raise HTTPException(404, "Producto no encontrado")
+
+        primary_link = next(link for link in product.category_links if link.is_primary)
+        primary = CategoryBase.model_validate(primary_link.category)
+
+        categories = [
+            CategoryBase.model_validate(link.category)
+            for link in product.category_links
+        ]
+        ingredients = [
+            IngredientBase(
+                ingredient_id=rel.ingredient.id,
+                name=rel.ingredient.name,
+                description=rel.ingredient.description,
+                is_removable=rel.is_removable,
+                is_allergen=rel.ingredient.is_allergen,
+            )
+            for rel in product.ingredients
+            if rel.ingredient
+        ]
+        return product, categories, primary, ingredients
 
     def _build_category_map(
         self, categories: list["Category"]
@@ -138,35 +147,6 @@ class ProductService:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_or_404(uow, product_id)
             result = ProductAdmin.model_validate(product)
-        return result
-
-    def get_active_by_id_with_category(self, product_id: int) -> ProductPublicFull:
-        with ProductUnitOfWork(self._session) as uow:
-            product = self._get_active_with_category_or_404(uow, product_id)
-            categories = [
-                CategoryBase.model_validate(link.category)
-                for link in product.category_links
-            ]
-            primary = next(
-                (
-                    CategoryBase.model_validate(link.category)
-                    for link in product.category_links
-                    if link.is_primary
-                )
-            )
-
-            result = ProductPublicFull(
-                id=product.id,  # type:ignore
-                name=product.name,
-                base_price=product.base_price,
-                description=product.description,
-                created_at=product.created_at,
-                images_url=product.images_url,
-                updated_at=product.updated_at,
-                deleted_at=product.deleted_at,
-                primary_category=primary,
-                categories=categories,
-            )
         return result
 
     def list_all(self, offset: int = 0, limit: int = 20) -> ProductList:
@@ -283,31 +263,26 @@ class ProductService:
             result = ProductList(data=data, total=count)
         return result
 
-    def get_by_id_with_category(self, product_id: int) -> ProductPublicFull:
+    def get_active_by_id_with_details(self, product_id: int) -> ProductDetail:
         with ProductUnitOfWork(self._session) as uow:
-            product = self._get_with_category_or_404(uow, product_id)
-            categories = [
-                CategoryBase.model_validate(link.category)
-                for link in product.category_links
-            ]
-            primary = next(
-                (
-                    CategoryBase.model_validate(link.category)
-                    for link in product.category_links
-                    if link.is_primary
-                )
+            product, categories, primary, ingredients = self._get_details_or_404(
+                uow, product_id, active_only=True
             )
-
-            result = ProductPublicFull(
-                id=product.id,  # type:ignore
-                name=product.name,
-                base_price=product.base_price,
-                description=product.description,
-                created_at=product.created_at,
-                images_url=product.images_url,
-                updated_at=product.updated_at,
-                deleted_at=product.deleted_at,
+            return ProductDetail(
+                **ProductPublic.model_validate(product).model_dump(),
                 primary_category=primary,
                 categories=categories,
+                ingredients=ingredients,
             )
-        return result
+
+    def get_by_id_with_details(self, product_id: int) -> ProductAdminDetail:
+        with ProductUnitOfWork(self._session) as uow:
+            product, categories, primary, ingredients = self._get_details_or_404(
+                uow, product_id, active_only=False
+            )
+        return ProductAdminDetail(
+            **ProductAdmin.model_validate(product).model_dump(),
+            primary_category=primary,
+            categories=categories,
+            ingredients=ingredients,
+        )

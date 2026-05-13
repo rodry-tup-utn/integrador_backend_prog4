@@ -5,10 +5,11 @@ from app.modules.product.schemas import (
     ProductCreate,
     ProductList,
     ProductPublic,
-    ProductPublicFull,
+    ProductDetail,
     ProductUpdate,
     ProductAdmin,
     ProductListAdmin,
+    ProductAdminDetail,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -54,12 +55,12 @@ def search(
     return svc.search_active_by_name(query, offset, limit)
 
 
-@router.get("/{id}", response_model=ProductPublicFull)
+@router.get("/{id}", response_model=ProductDetail)
 def get_by_id(
     id: Annotated[int, Path(ge=1)],
     svc: ProductService = Depends(get_product_service),
 ):
-    return svc.get_active_by_id_with_category(id)
+    return svc.get_active_by_id_with_details(id)
 
 
 @admin_router.delete("/{id}")
@@ -69,11 +70,11 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.get("/{id}", response_model=ProductPublicFull)
+@admin_router.get("/{id}", response_model=ProductAdminDetail)
 def get_by_id_with_category(
     id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
 ):
-    return svc.get_by_id_with_category(id)
+    return svc.get_by_id_with_details(id)
 
 
 @admin_router.patch("/{id}", response_model=ProductAdmin)

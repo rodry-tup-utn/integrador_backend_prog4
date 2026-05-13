@@ -18,6 +18,14 @@ class CategoryBase(SQLModel):
     image_url: str | None
 
 
+class IngredientBase(SQLModel):
+    ingredient_id: int
+    name: str
+    description: str | None
+    is_removable: bool
+    is_allergen: bool
+
+
 class ProductPublic(SQLModel):
     id: int
     base_price: Decimal
@@ -34,12 +42,16 @@ class ProductAdmin(ProductPublic):
     deleted_at: datetime | None
 
 
-class ProductPublicFull(ProductAdmin):
+class ProductDetail(ProductPublic):
+    primary_category: CategoryBase
+    categories: list[CategoryBase] | None
+    ingredients: list[IngredientBase] | None
+
+
+class ProductAdminDetail(ProductDetail):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
-    primary_category: CategoryBase
-    categories: list[CategoryBase] | None
 
 
 class ProductList(SQLModel):
