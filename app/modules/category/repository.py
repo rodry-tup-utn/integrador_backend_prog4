@@ -24,7 +24,9 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).first()
 
-    def get_all_active(self, offset: int = 0, limit: int = 20) -> Sequence[Category]:
+    def get_all_ordered(
+        self, offset: int = 0, limit: int = 20, only_actives=False
+    ) -> Sequence[Category]:
         statement = (
             select(Category)
             .where(col(Category.deleted_at).is_(None))
@@ -32,6 +34,9 @@ class CategoryRepository(BaseRepository[Category]):
             .offset(offset)
             .limit(limit)
         )
+
+        if only_actives:
+            statement = statement.where(col(Category.deleted_at).is_(None))
         return self.session.exec(statement).all()
 
     def get_all_active_no_paged(self) -> Sequence[Category]:
