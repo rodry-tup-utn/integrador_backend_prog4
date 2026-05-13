@@ -22,15 +22,12 @@ class CategoryPublic(SQLModel):
     deleted_at: datetime | None
 
 
-class CategoryPublicTree(CategoryPublic):
-    children: list[CategoryPublicTree]
-
-
-class CategoryTree(SQLModel):
+class CategoryNode(SQLModel):
     id: int
     name: str
     parent_id: int | None
-    children: list[CategoryTree]
+    has_children: bool
+    children: list[CategoryNode]
 
 
 class CategoryUpdate(SQLModel):
