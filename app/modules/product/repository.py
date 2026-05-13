@@ -81,12 +81,14 @@ class ProductRepository(BaseRepository[Product]):
     def soft_delete(self, product: Product) -> None:
         product.deleted_at = datetime.now(timezone.utc)
         product.updated_at = datetime.now(timezone.utc)
+        product.available = False
         self.session.add(product)
         self.session.flush()
 
     def restore(self, product: Product) -> Product:
         product.deleted_at = None
         product.updated_at = datetime.now(timezone.utc)
+        product.available = True
         self.session.add(product)
         self.session.flush()
         return product
