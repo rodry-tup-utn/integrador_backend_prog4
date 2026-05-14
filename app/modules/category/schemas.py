@@ -17,6 +17,9 @@ class CategoryPublic(SQLModel):
     name: str
     description: str | None
     image_url: str | None
+
+
+class CategoryPrivate(CategoryPublic):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
@@ -39,4 +42,9 @@ class CategoryUpdate(SQLModel):
 
 class CategoryList(SQLModel):
     data: List[CategoryPublic]
+    total: int
+
+
+class CategoryListPrivate(SQLModel):
+    data: List[CategoryPrivate]
     total: int
