@@ -190,7 +190,7 @@ class CategoryService:
             result = CategoryListPrivate(data=data, total=total)
         return result
 
-    def restore(self, category_id: int) -> CategoryPublic:
+    def restore(self, category_id: int) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_or_404(uow, category_id)
             if category.deleted_at is None:
@@ -199,7 +199,7 @@ class CategoryService:
                     "La categoria no está eliminada",
                 )
             uow.categories.restore(category)
-            result = CategoryPublic.model_validate(category)
+            result = CategoryPrivate.model_validate(category)
 
         return result
 
