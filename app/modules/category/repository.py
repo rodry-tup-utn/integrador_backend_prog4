@@ -29,7 +29,6 @@ class CategoryRepository(BaseRepository[Category]):
     ) -> Sequence[Category]:
         statement = (
             select(Category)
-            .where(col(Category.deleted_at).is_(None))
             .order_by(func.lower(Category.name))
             .offset(offset)
             .limit(limit)
