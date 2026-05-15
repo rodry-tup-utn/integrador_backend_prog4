@@ -7,6 +7,8 @@ from app.modules.category.schemas import (
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
+    CategoryListPrivate,
+    CategoryPrivate,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -31,7 +33,7 @@ def list_all_actives(
     limit: int = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.list_all(offset, limit)
+    return svc.list_all_actives(offset, limit)
 
 
 @router.get("/search", response_model=CategoryList)
@@ -87,7 +89,7 @@ def get_by_id(
     return svc.get_by_id(id)
 
 
-@admin_router.get("/", response_model=CategoryList)
+@admin_router.get("/", response_model=CategoryListPrivate)
 def list_all_admin(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -96,7 +98,7 @@ def list_all_admin(
     return svc.list_all_admin(offset, limit)
 
 
-@admin_router.post("/", response_model=CategoryPublic, status_code=201)
+@admin_router.post("/", response_model=CategoryPrivate, status_code=201)
 def create(
     data: CategoryCreate,
     svc: CategoryService = Depends(get_category_service),
@@ -104,7 +106,7 @@ def create(
     return svc.create(data)
 
 
-@admin_router.get("/search", response_model=CategoryList)
+@admin_router.get("/search", response_model=CategoryListPrivate)
 def search_admin(
     query: Annotated[str, Query(max_length=50, min_length=3)],
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -114,7 +116,7 @@ def search_admin(
     return svc.search_all_by_name(query, offset, limit)
 
 
-@admin_router.get("/root", response_model=CategoryList)
+@admin_router.get("/root", response_model=CategoryListPrivate)
 def list_root(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(le=100)] = 20,
@@ -123,7 +125,7 @@ def list_root(
     return svc.get_root_categories(offset, limit)
 
 
-@admin_router.patch("/{id}/restore", response_model=CategoryPublic)
+@admin_router.patch("/{id}/restore", response_model=CategoryPrivate)
 def restore(
     id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),
@@ -139,7 +141,7 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.get("/{id}", response_model=CategoryPublic)
+@admin_router.get("/{id}", response_model=CategoryPrivate)
 def get_by_id_admin(
     id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),

@@ -8,6 +8,7 @@ from app.modules.product_ingredient.schemas import (
     ProductIngredientUpdate,
     IngredientInProduct,
     ProductWithIngredients,
+    ProductIngredientBatchCreate,
 )
 from app.modules.product_ingredient.unit_of_work import ProductIngredientUnitOfWork
 
@@ -126,3 +127,57 @@ class ProductIngredientService:
                     "No puede eliminarse un ingrediente marcado como 'no removible'",
                 )
             uow.relationRepo.remove(relation)
+
+    def add_ingredients_batch(
+        self, product_id: int, data: ProductIngredientBatchCreate
+    ) -> ProductWithIngredients:
+        with ProductIngredientUnitOfWork(self._session) as uow:
+            self._assert_product_exists(uow, product_id)
+
+            ingredient_ids = [i.ingredient_id for i in data.ingredients]
+            found = uow.ingredientRepo.get_active_by_ids(ingredient_ids)
+            found_ids = {i.id for i in found}
+            missing = set(ingredient_ids) - found_ids
+            if missing:
+                raise HTTPException(
+                    404, f"Ingredientes no encontrados: {sorted(missing)}"
+                )
+
+            existing_ids = {
+                r.ingredient_id
+                for r in uow.relationRepo.get_ingredients_by_product(product_id)
+            }
+
+            new_relations = []
+            for item in data.ingredients:
+                if item.ingredient_id not in existing_ids:
+                    new_relations.append(
+                        ProductIngredient(
+                            product_id=product_id,
+                            ingredient_id=item.ingredient_id,
+                            is_removable=item.is_removable,
+                        )
+                    )
+            if new_relations:
+                uow._session.add_all(new_relations)
+                uow._session.flush()
+
+            product = uow.productRepo.get_active_by_id(product_id)
+            all_relations = uow.relationRepo.get_ingredients_by_product(product_id)
+
+            ingredients = [
+                IngredientInProduct(
+                    ingredient_id=rel.ingredient.id,
+                    name=rel.ingredient.name,
+                    description=rel.ingredient.description,
+                    is_removable=rel.is_removable,
+                )
+                for rel in all_relations
+                if rel.ingredient
+            ]
+
+            return ProductWithIngredients(
+                product_id=product_id,
+                name=product.name,  # type: ignore
+                ingredients=ingredients,
+            )

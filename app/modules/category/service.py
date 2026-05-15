@@ -6,6 +6,8 @@ from app.modules.category.schemas import (
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
+    CategoryPrivate,
+    CategoryListPrivate,
 )
 from sqlmodel import Session
 from app.modules.category.unit_of_work import CategoryUnitOfWork
@@ -45,7 +47,7 @@ class CategoryService:
 
     # Create
 
-    def create(self, data: CategoryCreate) -> CategoryPublic:
+    def create(self, data: CategoryCreate) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             self._assert_name_unique(uow, data.name)
 
@@ -54,7 +56,7 @@ class CategoryService:
             if data.parent_id:
                 self._get_active_or_404(uow, data.parent_id)
 
-            result = CategoryPublic.model_validate(categoria)
+            result = CategoryPrivate.model_validate(categoria)
         return result
 
     # Get by id
@@ -65,17 +67,17 @@ class CategoryService:
             result = CategoryPublic.model_validate(category)
         return result
 
-    def get_by_id_admin(self, category_id: int) -> CategoryPublic:
+    def get_by_id_admin(self, category_id: int) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_or_404(uow, category_id)
-            result = CategoryPublic.model_validate(category)
+            result = CategoryPrivate.model_validate(category)
         return result
 
     # List
 
-    def list_all(self, offset: int = 0, limit: int = 20) -> CategoryList:
+    def list_all_actives(self, offset: int = 0, limit: int = 20) -> CategoryList:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = uow.categories.get_all_active(offset, limit)
+            categories = uow.categories.get_all_ordered(offset, limit, True)
             total = uow.categories.count_active()
 
             data = [CategoryPublic.model_validate(c) for c in categories]
@@ -83,18 +85,18 @@ class CategoryService:
 
         return result
 
-    def list_all_admin(self, offset: int = 0, limit: int = 20) -> CategoryList:
+    def list_all_admin(self, offset: int = 0, limit: int = 20) -> CategoryListPrivate:
         with CategoryUnitOfWork(self._session) as uow:
-            categories = uow.categories.get_all(offset, limit)
+            categories = uow.categories.get_all_ordered(offset, limit)
             total = uow.categories.count()
 
-            data = [CategoryPublic.model_validate(c) for c in categories]
-            result = CategoryList(data=data, total=total)
+            data = [CategoryPrivate.model_validate(c) for c in categories]
+            result = CategoryListPrivate(data=data, total=total)
         return result
 
     # Update
 
-    def update(self, category_id: int, data: CategoryUpdate) -> CategoryPublic:
+    def update(self, category_id: int, data: CategoryUpdate) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, category_id)
             list_categories = list(uow.categories.get_all_active_no_paged())
@@ -112,8 +114,10 @@ class CategoryService:
                         400, "No puedes asignar la categoria a si misma"
                     )
 
+                # verificar que nueva categoria padre exista
                 self._get_active_or_404(uow, data.parent_id)
 
+                # validar si la nueva asignacion crear algun ciclo
                 if self._would_create_cycle(category, data.parent_id, category_map):
                     raise HTTPException(
                         status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
@@ -129,7 +133,7 @@ class CategoryService:
             category.updated_at = datetime.now(timezone.utc)
             uow.categories.add(category)
 
-            result = CategoryPublic.model_validate(category)
+            result = CategoryPrivate.model_validate(category)
         return result
 
     # Delete (soft)
@@ -173,20 +177,20 @@ class CategoryService:
 
     def search_all_by_name(
         self, query: str, offset: int = 0, limit: int = 20
-    ) -> CategoryList:
+    ) -> CategoryListPrivate:
         query = query.strip()
         if not query:
-            return CategoryList(data=[], total=0)
+            return CategoryListPrivate(data=[], total=0)
 
         with CategoryUnitOfWork(self._session) as uow:
             categorias = uow.categories.search_by_name(query, offset, limit)
             total = uow.categories.count_search_by_name(query)
 
-            data = [CategoryPublic.model_validate(c) for c in categorias]
-            result = CategoryList(data=data, total=total)
+            data = [CategoryPrivate.model_validate(c) for c in categorias]
+            result = CategoryListPrivate(data=data, total=total)
         return result
 
-    def restore(self, category_id: int) -> CategoryPublic:
+    def restore(self, category_id: int) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_or_404(uow, category_id)
             if category.deleted_at is None:
@@ -195,7 +199,7 @@ class CategoryService:
                     "La categoria no está eliminada",
                 )
             uow.categories.restore(category)
-            result = CategoryPublic.model_validate(category)
+            result = CategoryPrivate.model_validate(category)
 
         return result
 
