@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Path, status
+from fastapi import APIRouter, Depends, Query, Path, status, Body
 from sqlmodel import Session
 from app.modules.user.service import UserService
 from app.modules.user.schemas import (
@@ -9,9 +9,8 @@ from app.modules.user.schemas import (
     UserList,
 )
 from typing import Annotated
-from app.modules.user.models import Role
 from app.core.database import get_session
-from app.modules.auth.dependencies import get_token_payload, get_current_admin_user
+from app.modules.auth.dependencies import get_token_payload, require_role
 
 
 def get_user_service(session: Session = Depends(get_session)):
@@ -23,7 +22,7 @@ public_router = APIRouter(prefix="/user", tags=["Usuarios - Public"])
 admin_router = APIRouter(
     prefix="/admin/user",
     tags=["Usuarios - Admin"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 user_router = APIRouter(
@@ -38,7 +37,7 @@ public_router = APIRouter(prefix="/user", tags=["Usuarios - Public"])
 admin_router = APIRouter(
     prefix="/admin/user",
     tags=["Usuarios - Admin"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 user_router = APIRouter(
@@ -94,20 +93,32 @@ def get_user_by_admin(
     return svc.get_by_id(id)
 
 
-@admin_router.patch("/{id}/role", response_model=UserPrivate)
-def update_user_role(
+@admin_router.post("/{id}/role/{role_code}")
+def assign_user_role(
     id: Annotated[int, Path(ge=1)],
-    role: Role,
+    role_code: Annotated[str, Path(max_length=8)],
+    svc: UserService = Depends(get_user_service),
+    admin_user: UserPrivate = Depends(require_role(["ADMIN"])),
+):
+    svc.asign_role(id, role_code, admin_user.id)
+    return {"message": "Rol asignado correctamente"}
+
+
+@admin_router.delete("/{id}/role/{role_code}")
+def revoke_user_role(
+    id: Annotated[int, Path(ge=1)],
+    role_code: Annotated[str, Path()],
     svc: UserService = Depends(get_user_service),
 ):
-    return svc.update_role(id, role)
+    svc.revoke_role(id, role_code)
+    return {"message": "Rol revocado correctamente"}
 
 
 @admin_router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     id: Annotated[int, Path(ge=1)],
     svc: UserService = Depends(get_user_service),
-    admin_user: UserPrivate = Depends(get_current_admin_user),
+    admin_user: UserPrivate = Depends(require_role(["ADMIN"])),
 ):
     return svc.soft_delete(id, admin_user.id)
 
