@@ -27,7 +27,7 @@ class AuthService:
 
         payload = JWTPayload(
             sub=str(user_credentials.id),
-            role=user_credentials.role,
+            role=user_credentials.roles,
             name=user_credentials.name,
         )
 
@@ -38,6 +38,6 @@ class AuthService:
             user=UserTokenData(
                 id=user_credentials.id,
                 name=user_credentials.name,
-                role=user_credentials.role,
+                role=user_credentials.roles,
             ),
         )
