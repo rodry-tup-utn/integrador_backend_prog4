@@ -4,7 +4,7 @@ from typing import Optional, Literal
 
 class JWTPayload(BaseModel):
     sub: str
-    role: str
+    role: list[str]
     name: str
     exp: Optional[int] = None
 
@@ -13,7 +13,7 @@ class JWTPayload(BaseModel):
 
 class UserTokenData(BaseModel):
     id: int
-    role: str
+    role: list[str]
     name: str
 
 
