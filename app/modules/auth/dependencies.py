@@ -1,15 +1,32 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from sqlmodel import Session
 from app.core.config import settings
 from app.core.database import get_session
-import app.modules.user.models as UserModel
 from app.modules.user.service import UserService
 from app.modules.auth.schemas import UserTokenData
+from typing import Annotated
+from app.modules.user.models import User
 from app.modules.user.schemas import UserPrivate
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
+    async def __call__(self, request: Request) -> str | None:
+        token = request.cookies.get("access_token")
+        if not token:
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No autenticado",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                return None
+        return token
+
+
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="auth/login")
 
 forbidden_exception = HTTPException(
     status_code=status.HTTP_403_FORBIDDEN,
@@ -58,15 +75,22 @@ def get_current_user(
         raise unauthorized_exception
 
 
-def get_current_admin_user(
-    current_user: UserTokenData = Depends(get_token_payload),
-    svc: UserService = Depends(get_user_service),
-) -> UserPrivate:
-    try:
-        user = svc.get_active_by_id(current_user.id)
-        if user.role != UserModel.Role.ADMIN:
-            raise forbidden_exception
-    except Exception:
-        raise forbidden_exception
+def require_role(allowed_roles: list[str]):
+    async def role_checker(
+        current_user: Annotated[UserPrivate, Depends(get_current_user)],
+    ) -> UserPrivate:
 
-    return user
+        user_roles = [link.code for link in current_user.roles]
+        for code in user_roles:
+            if code in allowed_roles:
+                return current_user
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Permisos insuficientes. Tus roles son {user_roles}. "
+                f"Se requiere uno de: {allowed_roles}"
+            ),
+        )
+
+    return role_checker  # Retorna la dependencia configurada
