@@ -12,7 +12,7 @@ from app.modules.category.schemas import (
 )
 from app.core.database import get_session
 from typing import Annotated
-from app.modules.auth.dependencies import get_current_admin_user
+from app.modules.auth.dependencies import require_role
 
 
 def get_category_service(session: Session = Depends(get_session)) -> CategoryService:
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/category", tags=["Public - Categorias"])
 admin_router = APIRouter(
     prefix="/admin/category",
     tags=["Admin - Categorias"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 

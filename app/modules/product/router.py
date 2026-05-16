@@ -13,7 +13,7 @@ from app.modules.product.schemas import (
 )
 from app.core.database import get_session
 from typing import Annotated
-from app.modules.auth.dependencies import get_current_admin_user
+from app.modules.auth.dependencies import require_role
 
 
 def get_product_service(session: Session = Depends(get_session)) -> ProductService:
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/product", tags=["Public - Productos"])
 admin_router = APIRouter(
     prefix="/admin/product",
     tags=["Admin - Product"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 
