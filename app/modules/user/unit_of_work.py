@@ -3,6 +3,9 @@ from sqlmodel import Session
 from app.modules.user.repositories.user_repository import UserRepository
 from app.modules.user.repositories.role_repository import RoleRepository
 from app.modules.user.repositories.user_role_repository import UserRoleLinkRepository
+from app.modules.user.repositories.deivery_adress_repository import (
+    DeliveryAdressRepository,
+)
 
 
 class UserUnitOfWork(UnitOfWork["UserUnitOfWork"]):
@@ -11,3 +14,4 @@ class UserUnitOfWork(UnitOfWork["UserUnitOfWork"]):
         self.users = UserRepository(session)
         self.roles = RoleRepository(session)
         self.user_role = UserRoleLinkRepository(session)
+        self.delivery_adress = DeliveryAdressRepository(session)
