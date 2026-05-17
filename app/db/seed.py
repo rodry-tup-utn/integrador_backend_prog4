@@ -1,8 +1,13 @@
 from sqlmodel import Session, select
 from app.core.database import engine, create_db_and_tables
 from app.core.security import get_password_hash
-from app.modules.user.models import Role, User, UserRoleLink, DeliveryAdress
+from app.modules.user.models import Role, User, UserRoleLink, Address
+from app.modules.product_category.models import ProductCategoryLink
+from app.modules.product_ingredient.models import ProductIngredient
+from app.modules.product.models import Product
+from app.modules.ingredient.models import Ingredient
 from datetime import datetime, timezone
+from app.modules.category.models import Category
 
 datetime_now = datetime.now(timezone.utc)
 
@@ -70,6 +75,177 @@ ADRESSES = [
     }
 ]
 
+CATEGORIES = [
+    # --------------------
+    # COMIDAS
+    # --------------------
+    {
+        "name": "Comidas",
+        "description": "Todas las comidas",
+        "image_url": None,
+        "parent_name": None,
+    },
+    {
+        "name": "Pizzas",
+        "description": "Pizzas tradicionales y especiales",
+        "image_url": None,
+        "parent_name": "Comidas",
+    },
+    {
+        "name": "Empanadas",
+        "description": "Empanadas horneadas y fritas",
+        "image_url": None,
+        "parent_name": "Comidas",
+    },
+    {
+        "name": "Hamburguesas",
+        "description": "Hamburguesas artesanales",
+        "image_url": None,
+        "parent_name": "Comidas",
+    },
+    {
+        "name": "Milanesas",
+        "description": "Milanesas con diferentes guarniciones",
+        "image_url": None,
+        "parent_name": "Comidas",
+    },
+    {
+        "name": "Pastas",
+        "description": "Pastas caseras",
+        "image_url": None,
+        "parent_name": "Comidas",
+    },
+    # --------------------
+    # SUBCATEGORIAS PIZZAS
+    # --------------------
+    {
+        "name": "Pizza Napolitana",
+        "description": "Pizza con tomate y ajo",
+        "image_url": None,
+        "parent_name": "Pizzas",
+    },
+    {
+        "name": "Pizza Muzzarella",
+        "description": "Pizza clásica de muzzarella",
+        "image_url": None,
+        "parent_name": "Pizzas",
+    },
+    {
+        "name": "Pizza Especial",
+        "description": "Pizza con ingredientes especiales",
+        "image_url": None,
+        "parent_name": "Pizzas",
+    },
+    # --------------------
+    # SUBCATEGORIAS EMPANADAS
+    # --------------------
+    {
+        "name": "Empanadas de Carne",
+        "description": "Empanadas rellenas de carne",
+        "image_url": None,
+        "parent_name": "Empanadas",
+    },
+    {
+        "name": "Empanadas de Pollo",
+        "description": "Empanadas rellenas de pollo",
+        "image_url": None,
+        "parent_name": "Empanadas",
+    },
+    {
+        "name": "Empanadas Vegetarianas",
+        "description": "Empanadas sin carne",
+        "image_url": None,
+        "parent_name": "Empanadas",
+    },
+    # --------------------
+    # BEBIDAS
+    # --------------------
+    {
+        "name": "Bebidas",
+        "description": "Todas las bebidas",
+        "image_url": None,
+        "parent_name": None,
+    },
+    {
+        "name": "Gaseosas",
+        "description": "Bebidas gaseosas",
+        "image_url": None,
+        "parent_name": "Bebidas",
+    },
+    {
+        "name": "Aguas",
+        "description": "Aguas minerales y saborizadas",
+        "image_url": None,
+        "parent_name": "Bebidas",
+    },
+    {
+        "name": "Jugos",
+        "description": "Jugos naturales y procesados",
+        "image_url": None,
+        "parent_name": "Bebidas",
+    },
+    {
+        "name": "Cervezas",
+        "description": "Cervezas nacionales e importadas",
+        "image_url": None,
+        "parent_name": "Bebidas",
+    },
+    # --------------------
+    # POSTRES
+    # --------------------
+    {
+        "name": "Postres",
+        "description": "Postres y cosas dulces",
+        "image_url": None,
+        "parent_name": None,
+    },
+    {
+        "name": "Helados",
+        "description": "Helados artesanales",
+        "image_url": None,
+        "parent_name": "Postres",
+    },
+    {
+        "name": "Tortas",
+        "description": "Tortas y tartas dulces",
+        "image_url": None,
+        "parent_name": "Postres",
+    },
+    {
+        "name": "Flanes",
+        "description": "Flanes caseros",
+        "image_url": None,
+        "parent_name": "Postres",
+    },
+    # --------------------
+    # DESAYUNO Y MERIENDA
+    # --------------------
+    {
+        "name": "Desayuno y Merienda",
+        "description": "Opciones para desayuno y merienda",
+        "image_url": None,
+        "parent_name": None,
+    },
+    {
+        "name": "Cafetería",
+        "description": "Café y bebidas calientes",
+        "image_url": None,
+        "parent_name": "Desayuno y Merienda",
+    },
+    {
+        "name": "Medialunas",
+        "description": "Medialunas dulces y saladas",
+        "image_url": None,
+        "parent_name": "Desayuno y Merienda",
+    },
+    {
+        "name": "Sandwiches",
+        "description": "Sandwiches tostados y fríos",
+        "image_url": None,
+        "parent_name": "Desayuno y Merienda",
+    },
+]
+
 
 def run() -> None:
     print("=== Seed de Usuarios y Roles) ===")
@@ -111,31 +287,29 @@ def run() -> None:
 
         for data_adress in ADRESSES:
             existing = session.exec(
-                select(DeliveryAdress).where(
-                    DeliveryAdress.line_one == data_adress["line_one"]
-                )
+                select(Address).where(Address.line_one == data_adress["line_one"])
             ).first()
             if existing:
                 print(f"Ya existe la direccion id {data_adress["line_one"]}")
             else:
-                adress = DeliveryAdress(
+                adress = Address(
                     user_id=data_adress["user_id"],
                     alias=data_adress["alias"],
                     line_one=data_adress["line_one"],
                     city=data_adress["city"],
                     province=data_adress["province"],
                     zip_code=data_adress["zip_code"],
-                    latitud=data_adress["latitude"],
+                    latitude=data_adress["latitude"],
                     is_main=data_adress["is_main"],
                     longitude=data_adress["longitude"],
                 )
                 session.add(adress)
                 print("Direccion agregada")
-        session.commit()
+            session.commit()
 
-    # refrescar usuarios/roles desde DB
-    users = session.exec(select(User)).all()
-    roles = session.exec(select(Role)).all()
+        # refrescar usuarios/roles desde DB
+        users = session.exec(select(User)).all()
+        roles = session.exec(select(Role)).all()
 
     role_map = {r.code: r for r in roles}
     user_map = {u.email: u for u in users}
@@ -179,6 +353,41 @@ def run() -> None:
             print(f"  [=] Ya existe relación {email} -> {role_code}")
 
         session.commit()
+
+    category_map = {}
+    for data_category in CATEGORIES:
+
+        existing = session.exec(
+            select(Category).where(Category.name == data_category["name"])
+        ).first()
+
+        if existing:
+            print(f"  [=] Ya existe categoria: {data_category['name']}")
+            category_map[data_category["name"]] = existing
+            continue
+
+        parent = None
+
+        if data_category["parent_name"]:
+            parent = session.exec(
+                select(Category).where(Category.name == data_category["parent_name"])
+            ).first()
+
+        category = Category(
+            name=data_category["name"],
+            description=data_category["description"],
+            image_url=data_category["image_url"],
+            parent_id=parent.id if parent else None,
+        )
+
+        session.add(category)
+        session.flush()
+
+        session.commit()
+
+        category_map[data_category["name"]] = category
+
+        print(f"  [+] Categoria creada: {category.name}")
 
 
 if __name__ == "__main__":
