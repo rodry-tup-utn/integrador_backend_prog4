@@ -172,7 +172,7 @@ class ProductService:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
 
-            if data.name and data.name != product.name:
+            if data.name and data.name.lower() != product.name.lower():
                 self._assert_name_unique(uow, data.name)
 
             current_primary = uow.product_category_link.get_primary_by_product_id(
