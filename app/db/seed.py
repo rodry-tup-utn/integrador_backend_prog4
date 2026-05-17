@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 from app.core.database import engine, create_db_and_tables
 from app.core.security import get_password_hash
-from app.modules.user.models import Role, User, UserRoleLink
+from app.modules.user.models import Role, User, UserRoleLink, DeliveryAdress
 from datetime import datetime, timezone
 
 datetime_now = datetime.now(timezone.utc)
@@ -56,27 +56,41 @@ USERS = [
     },
 ]
 
+ADRESSES = [
+    {
+        "user_id": "4",
+        "alias": "Casa",
+        "line_one": "Calle Falsa 123",
+        "city": "Springfield",
+        "province": "Fake Province",
+        "zip_code": "12345",
+        "latitude": 50.0,
+        "longitude": 120.0,
+        "is_main": True,
+    }
+]
+
 
 def run() -> None:
     print("=== Seed de Usuarios y Roles) ===")
     create_db_and_tables()
 
     with Session(engine) as session:
-        for data in ROLES:
+        for data_adress in ROLES:
             existing = session.exec(
-                select(Role).where(Role.code == data["code"])
+                select(Role).where(Role.code == data_adress["code"])
             ).first()
 
             if existing:
-                print(f"  [=] Ya existe: {data['code']}")
+                print(f"  [=] Ya existe: {data_adress['code']}")
             else:
                 role = Role(
-                    code=data["code"],
-                    name=data["name"],
-                    description=data["description"],
+                    code=data_adress["code"],
+                    name=data_adress["name"],
+                    description=data_adress["description"],
                 )
                 session.add(role)
-                print(f"  [+] Creado:    {data['name']})")
+                print(f"  [+] Creado:    {data_adress['name']})")
 
         for user in USERS:
             existing = session.exec(
@@ -95,6 +109,28 @@ def run() -> None:
                 )
                 session.add(user)
 
+        for data_adress in ADRESSES:
+            existing = session.exec(
+                select(DeliveryAdress).where(
+                    DeliveryAdress.line_one == data_adress["line_one"]
+                )
+            ).first()
+            if existing:
+                print(f"Ya existe la direccion id {data_adress["line_one"]}")
+            else:
+                adress = DeliveryAdress(
+                    user_id=data_adress["user_id"],
+                    alias=data_adress["alias"],
+                    line_one=data_adress["line_one"],
+                    city=data_adress["city"],
+                    province=data_adress["province"],
+                    zip_code=data_adress["zip_code"],
+                    latitud=data_adress["latitude"],
+                    is_main=data_adress["is_main"],
+                    longitude=data_adress["longitude"],
+                )
+                session.add(adress)
+                print("Direccion agregada")
         session.commit()
 
     # refrescar usuarios/roles desde DB
