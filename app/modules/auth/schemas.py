@@ -15,9 +15,3 @@ class UserTokenData(BaseModel):
     id: int
     role: list[str]
     name: str
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: Literal["bearer"] = "bearer"
-    user: UserTokenData

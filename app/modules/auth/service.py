@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from app.modules.user.services.user_service import UserService
-from app.modules.auth.schemas import Token, JWTPayload, UserTokenData
+from app.modules.auth.schemas import JWTPayload
 from app.core.security import verify_password, create_access_token
 
 
@@ -8,7 +8,7 @@ class AuthService:
     def __init__(self, session) -> None:
         self._user_service = UserService(session)
 
-    def login(self, email: str, password: str) -> Token:
+    def login(self, email: str, password: str) -> str:
         try:
             user_credentials = self._user_service.get_auth_credentials(email)
         except HTTPException:
@@ -31,13 +31,6 @@ class AuthService:
             name=user_credentials.name,
         )
 
-        access_token = create_access_token(payload)
+        token = create_access_token(payload)
 
-        return Token(
-            access_token=access_token,
-            user=UserTokenData(
-                id=user_credentials.id,
-                name=user_credentials.name,
-                role=user_credentials.roles,
-            ),
-        )
+        return token

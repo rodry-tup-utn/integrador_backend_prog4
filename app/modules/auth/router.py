@@ -26,7 +26,7 @@ def login_for_access_token(
     token = auth_service.login(email=form_data.username, password=form_data.password)
     response.set_cookie(
         key="access_token",
-        value=token.access_token,
+        value=token,
         httponly=True,
         max_age=1800,  # 30 minutos, o el valor de expires_in
         samesite="lax",
