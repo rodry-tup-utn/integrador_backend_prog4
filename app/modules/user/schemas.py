@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field
 from pydantic import field_validator
 from app.modules.user.models import Role, UserRoleLink
+from datetime import datetime
 
 
 class UserCreate(SQLModel):
@@ -28,6 +29,63 @@ class UserUpdate(SQLModel):
     email: str | None = None
 
 
+class RoleRead(SQLModel):
+    code: str
+    name: str
+    description: str
+
+
+class DeliveryAdressRead(SQLModel):
+    id: int
+    alias: str
+    line_one: str
+    line_two: str | None
+    city: str
+    province: str
+    zip_code: str
+    latitud: float
+    longitude: float
+    is_main: bool
+
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+
+
+class DeliveryAdressUpdate(SQLModel):
+    alias: str | None = None
+    line_one: str | None = None
+    line_two: str | None = None
+    city: str | None = None
+    province: str | None = None
+    zip_code: str | None = None
+    latitud: float | None = None
+    longitude: float | None = None
+    is_main: bool | None = None
+
+
+class DeliveryAdressCreate(SQLModel):
+    alias: str = Field(max_length=255, min_length=3)
+    line_one: str = Field(max_length=255)
+    line_two: str | None = Field(max_length=255, default=None)
+    city: str = Field(max_length=100)
+    province: str = Field(max_length=100)
+    zip_code: str = Field(max_length=10)
+    latitud: float = Field(ge=-90.0, le=90.0, description="Latitud en grados, -90 a 90")
+    longitude: float = Field(
+        ge=-180.0, le=180.0, description="Longitud en grados, -180 a 180"
+    )
+    is_main: bool | None = Field(default=False)
+
+
+class UserRole(SQLModel):
+    role_code: str
+    role_user: RoleRead
+    assigned_by_id: int
+    expires_at: datetime | None
+    created_at: datetime
+
+
 class UserPrivate(UserBase):
     roles: list[Role]
 
@@ -41,6 +99,15 @@ class UserPrivate(UserBase):
                 if link.role_user and link.expires_at is None
             ]
         return v
+
+
+class UserDetail(UserBase):
+    roles: list[UserRole]
+
+
+class UserProfile(UserBase):
+    roles: list[UserRole]
+    addresses: list[DeliveryAdressRead]
 
 
 class UserLogin(SQLModel):
