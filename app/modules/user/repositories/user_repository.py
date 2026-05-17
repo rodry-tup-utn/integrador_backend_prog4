@@ -8,6 +8,7 @@ from app.modules.user.schemas import UserAuthCredentials
 from sqlalchemy.orm import selectinload
 from app.modules.user.models import UserRoleLink
 from app.modules.user.models import Role
+from app.modules.user.models import DeliveryAdress
 
 
 class UserRepository(BaseRepository["User"]):
@@ -42,20 +43,32 @@ class UserRepository(BaseRepository["User"]):
         )
         return self.session.exec(statement).one()
 
-    def get_by_id(self, user_id: int) -> User | None:
+    def get_by_id(self, user_id: int, only_actives=False) -> User | None:
         statement = (
             select(User)
             .where(User.id == user_id)
             .options(selectinload(User.roles).selectinload(UserRoleLink.role_user))
         )
+
+        if only_actives:
+            statement = statement.where(col(User.deleted_at).is_(None))
+
         return self.session.exec(statement).first()
 
-    def get_active_by_id(self, user_id: int) -> User | None:
+    def get_with_roles_and_addresses(
+        self, user_id: int, only_actives=False
+    ) -> User | None:
         statement = (
             select(User)
-            .where(col(User.deleted_at).is_(None), User.id == user_id)
-            .options(selectinload(User.roles).selectinload(UserRoleLink.role_user))
+            .where(User.id == user_id)
+            .options(
+                selectinload(User.roles).selectinload(UserRoleLink.role_user),
+                selectinload(User.delivery_adress),
+            )
         )
+        if only_actives:
+            statement = statement.where(col(User.deleted_at).is_(None))
+
         return self.session.exec(statement).first()
 
     def get_by_email(self, email: str) -> User | None:
