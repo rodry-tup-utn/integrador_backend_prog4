@@ -35,7 +35,7 @@ class RoleRead(SQLModel):
     description: str
 
 
-class DeliveryAdressRead(SQLModel):
+class AddressRead(SQLModel):
     id: int
     alias: str
     line_one: str
@@ -52,7 +52,7 @@ class DeliveryAdressRead(SQLModel):
     deleted_at: datetime | None
 
 
-class DeliveryAdressUpdate(SQLModel):
+class AddressUpdate(SQLModel):
     alias: str | None = None
     line_one: str | None = None
     line_two: str | None = None
@@ -64,7 +64,7 @@ class DeliveryAdressUpdate(SQLModel):
     is_main: bool | None = None
 
 
-class DeliveryAdressCreate(SQLModel):
+class AddressCreate(SQLModel):
     alias: str = Field(max_length=255, min_length=3)
     line_one: str = Field(max_length=255)
     line_two: str | None = Field(max_length=255, default=None)
@@ -107,7 +107,7 @@ class UserDetail(UserBase):
 
 class UserProfile(UserBase):
     roles: list[UserRole]
-    addresses: list[DeliveryAdressRead]
+    addresses: list[AddressRead]
 
 
 class UserLogin(SQLModel):

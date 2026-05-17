@@ -10,9 +10,9 @@ from app.modules.user.schemas import (
     UserList,
     UserDetail,
     UserProfile,
-    DeliveryAdressCreate,
-    DeliveryAdressUpdate,
-    DeliveryAdressRead,
+    AddressCreate,
+    AddressUpdate,
+    AddressRead,
 )
 from app.modules.auth.schemas import UserTokenData
 from typing import Annotated
@@ -68,7 +68,7 @@ def update_profile(
     return svc.update_profile(user_data.id, data)
 
 
-@user_router.get("/address", response_model=list[DeliveryAdressRead])
+@user_router.get("/address", response_model=list[AddressRead])
 def list_my_addresses(
     user: UserDetail = Depends(get_current_user),
     svc: DeliveryAdressService = Depends(get_address_service),
@@ -77,20 +77,20 @@ def list_my_addresses(
 
 
 @user_router.post(
-    "/address", response_model=DeliveryAdressRead, status_code=status.HTTP_201_CREATED
+    "/address", response_model=AddressRead, status_code=status.HTTP_201_CREATED
 )
 def create_address(
-    data: DeliveryAdressCreate,
+    data: AddressCreate,
     user: UserDetail = Depends(get_current_user),
     svc: DeliveryAdressService = Depends(get_address_service),
 ):
     return svc.create(user.id, data)
 
 
-@user_router.patch("/address/{id}", response_model=DeliveryAdressRead)
+@user_router.patch("/address/{id}", response_model=AddressRead)
 def update_address(
     id: Annotated[int, Path(ge=1)],
-    data: DeliveryAdressUpdate,
+    data: AddressUpdate,
     user: UserDetail = Depends(get_current_user),
     svc: DeliveryAdressService = Depends(get_address_service),
 ):
@@ -107,7 +107,7 @@ def delete_address(
     return {"message": "Domicilio eliminado correctamente"}
 
 
-@user_router.patch("/address/{id}/restore", response_model=DeliveryAdressRead)
+@user_router.patch("/address/{id}/restore", response_model=AddressRead)
 def restore_address(
     id: Annotated[int, Path(ge=1)],
     user: UserDetail = Depends(get_current_user),

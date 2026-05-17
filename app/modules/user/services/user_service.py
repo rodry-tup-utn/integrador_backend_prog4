@@ -10,7 +10,7 @@ from app.modules.user.schemas import (
     UserRole,
     RoleRead,
     UserProfile,
-    DeliveryAdressRead,
+    AddressRead,
 )
 from sqlmodel import Session
 from app.modules.user.unit_of_work import UserUnitOfWork
@@ -254,8 +254,8 @@ class UserService:
             ]
 
             addresses_read = [
-                DeliveryAdressRead.model_validate(address)
-                for address in user.delivery_adress
+                AddressRead.model_validate(address)
+                for address in user.addresses
                 if address.deleted_at is None
             ]
 

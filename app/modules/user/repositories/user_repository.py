@@ -8,7 +8,7 @@ from app.modules.user.schemas import UserAuthCredentials
 from sqlalchemy.orm import selectinload
 from app.modules.user.models import UserRoleLink
 from app.modules.user.models import Role
-from app.modules.user.models import DeliveryAdress
+from app.modules.user.models import Address
 
 
 class UserRepository(BaseRepository["User"]):
@@ -63,7 +63,7 @@ class UserRepository(BaseRepository["User"]):
             .where(User.id == user_id)
             .options(
                 selectinload(User.roles).selectinload(UserRoleLink.role_user),
-                selectinload(User.delivery_adress),
+                selectinload(User.addresses),
             )
         )
         if only_actives:

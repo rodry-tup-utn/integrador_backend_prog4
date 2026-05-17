@@ -30,9 +30,7 @@ class User(SQLModel, table=True):
         back_populates="assigned_by",
         sa_relationship_kwargs={"foreign_keys": "[UserRoleLink.assigned_by_id]"},
     )
-    delivery_adress: Mapped[list["DeliveryAdress"]] = Relationship(
-        back_populates="user"
-    )
+    addresses: Mapped[list["Address"]] = Relationship(back_populates="user")
 
 
 class Role(SQLModel, table=True):
@@ -73,8 +71,7 @@ class UserRoleLink(SQLModel, table=True):
     )
 
 
-class DeliveryAdress(SQLModel, table=True):
-    __tablename__ = "delivery_adress"  # type: ignore
+class Address(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     user_id: int = Field(foreign_key="user.id")
@@ -85,8 +82,10 @@ class DeliveryAdress(SQLModel, table=True):
     city: str = Field(max_length=100)
     province: str = Field(max_length=100)
     zip_code: str = Field(max_length=10)
-    latitud: float = Field(ge=-90.0, le=90.0, description="Latitud en grados, -90 a 90")
-    longitude: float = Field(
+    latitude: Decimal = Field(
+        ge=-90.0, le=90.0, description="Latitud en grados, -90 a 90"
+    )
+    longitude: Decimal = Field(
         ge=-180.0, le=180.0, description="Longitud en grados, -180 a 180"
     )
     is_main: bool = Field(default=False)
@@ -95,4 +94,4 @@ class DeliveryAdress(SQLModel, table=True):
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
 
-    user: User = Relationship(back_populates="delivery_adress")
+    user: User = Relationship(back_populates="addresses")
