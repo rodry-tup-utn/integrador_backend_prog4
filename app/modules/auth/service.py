@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from app.modules.user.service import UserService
+from app.modules.user.services.user_service import UserService
 from app.modules.auth.schemas import Token, JWTPayload, UserTokenData
 from app.core.security import verify_password, create_access_token
 
