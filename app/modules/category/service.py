@@ -259,12 +259,14 @@ class CategoryService:
 
         return result
 
-    def get_root_categories(self, offset: int = 0, limit: int = 20):
+    def get_root_categories(
+        self, offset: int = 0, limit: int = 20
+    ) -> CategoryListPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             categories = list(uow.categories.get_all_root(offset, limit))
-            data = [CategoryPublic.model_validate(c) for c in categories]
+            data = [CategoryPrivate.model_validate(c) for c in categories]
             count = uow.categories.count_root_active()
-            result = CategoryList(data=data, total=count)
+            result = CategoryListPrivate(data=data, total=count)
 
         return result
 
