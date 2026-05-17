@@ -96,34 +96,46 @@ class CategoryService:
 
     # Update
 
+    def _change_parent(
+        self, uow: CategoryUnitOfWork, category: Category, new_parent_id: int | None
+    ) -> None:
+        if new_parent_id is not None:
+            products = uow.category_products.has_products(category.id)
+            if products:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No puedes modificar el arbol de jerarquias en una categoria con productos",
+                )
+            if category.id == new_parent_id:
+                raise HTTPException(
+                    400, "No puedes asignar la categoria a si misma"
+                )
+
+            self._get_active_or_404(uow, new_parent_id)
+
+            categories = list(uow.categories.get_all_active_no_paged())
+            category_map = self._build_category_map(categories)
+
+            if self._would_create_cycle(category, new_parent_id, category_map):
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
+                )
+
+        category.parent_id = new_parent_id
+        category.updated_at = datetime.now(timezone.utc)
+
+    def change_parent(self, category_id: int, new_parent_id: int | None) -> CategoryPrivate:
+        with CategoryUnitOfWork(self._session) as uow:
+            category = self._get_active_or_404(uow, category_id)
+            self._change_parent(uow, category, new_parent_id)
+            uow.categories.add(category)
+            return CategoryPrivate.model_validate(category)
+
     def update(self, category_id: int, data: CategoryUpdate) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, category_id)
-            list_categories = list(uow.categories.get_all_active_no_paged())
-            category_map = self._build_category_map(list_categories)
 
-            if data.parent_id is not None:
-                products = uow.category_products.has_products(category_id)
-                if products:
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
-                        "No puedes modificar el arbol de jerarquias en una categoria con productos ",
-                    )
-                if category.id == data.parent_id:
-                    raise HTTPException(
-                        400, "No puedes asignar la categoria a si misma"
-                    )
-
-                # verificar que nueva categoria padre exista
-                self._get_active_or_404(uow, data.parent_id)
-
-                # validar si la nueva asignacion crear algun ciclo
-                if self._would_create_cycle(category, data.parent_id, category_map):
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
-                    )
-
-            if data.name and data.name != category.name:
+            if data.name and data.name.lower() != category.name.lower():
                 self._assert_name_unique(uow, data.name)
 
             patch = data.model_dump(exclude_unset=True)

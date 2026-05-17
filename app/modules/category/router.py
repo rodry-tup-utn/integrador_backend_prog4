@@ -4,6 +4,7 @@ from app.modules.category.service import CategoryService
 from app.modules.category.schemas import (
     CategoryCreate,
     CategoryList,
+    CategoryParentUpdate,
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
@@ -123,6 +124,15 @@ def list_root(
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.get_root_categories(offset, limit)
+
+
+@admin_router.patch("/{id}/parent", response_model=CategoryPrivate)
+def change_parent(
+    id: Annotated[int, Path(ge=1)],
+    data: CategoryParentUpdate,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.change_parent(id, data.parent_id)
 
 
 @admin_router.patch("/{id}/restore", response_model=CategoryPrivate)
