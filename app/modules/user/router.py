@@ -5,6 +5,7 @@ from app.modules.user.services.adress_service import DeliveryAdressService
 from app.modules.user.schemas import (
     UserBase,
     UserCreate,
+    UserCreateByAdmin,
     UserUpdate,
     UserPrivate,
     UserList,
@@ -125,6 +126,15 @@ def create_user(data: UserCreate, svc: UserService = Depends(get_user_service)):
 
 
 # --- ADMIN ROUTES ---
+
+
+@admin_router.post("/", response_model=UserBase, status_code=status.HTTP_201_CREATED)
+def create_user_admin(
+    data: UserCreateByAdmin,
+    svc: UserService = Depends(get_user_service),
+    admin_user: UserDetail = Depends(require_role(["ADMIN"])),
+):
+    return svc.create_by_admin(data, admin_user.id)
 
 
 @admin_router.get("/", response_model=UserList)
