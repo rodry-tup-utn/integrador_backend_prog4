@@ -3,6 +3,7 @@ from app.modules.user.schemas import (
     UserBase,
     UserAuthCredentials,
     UserCreate,
+    UserCreateByAdmin,
     UserUpdate,
     UserPrivate,
     UserList,
@@ -17,6 +18,8 @@ from app.modules.user.unit_of_work import UserUnitOfWork
 from app.modules.user.models import User, Role, UserRoleLink
 from datetime import datetime, timezone
 from app.core.security import get_password_hash
+
+DEFAULT_ROLE = "CLIENT"
 
 
 class UserService:
@@ -63,8 +66,40 @@ class UserService:
             user_data["hashed_pass"] = hashed_pass
 
             user = User(**user_data)
-
             uow.users.add(user)
+
+            role = self._get_role_by_code_or_404(uow, DEFAULT_ROLE)
+            user_role = UserRoleLink(
+                user_id=user.id,  # type: ignore
+                role_code=role.code,
+                assigned_by_id=user.id,  # type: ignore
+                created_at=datetime.now(timezone.utc),
+            )
+            uow.user_role.add(user_role)
+
+            result = UserBase.model_validate(user)
+
+        return result
+
+    def create_by_admin(self, data: UserCreateByAdmin, admin_id: int) -> UserBase:
+        with UserUnitOfWork(self._session) as uow:
+            self._assert_email_unique(uow, data.email)
+            role = self._get_role_by_code_or_404(uow, data.role_code)
+
+            hashed_pass = get_password_hash(data.password)
+            user_data = data.model_dump(exclude={"password", "role_code"})
+            user_data["hashed_pass"] = hashed_pass
+
+            user = User(**user_data)
+            uow.users.add(user)
+
+            user_role = UserRoleLink(
+                user_id=user.id,  # type: ignore
+                role_code=role.code,
+                assigned_by_id=admin_id,
+                created_at=datetime.now(timezone.utc),
+            )
+            uow.user_role.add(user_role)
 
             result = UserBase.model_validate(user)
 
