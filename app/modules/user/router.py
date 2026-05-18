@@ -146,6 +146,23 @@ def get_all_users(
     return svc.get_all(offset, limit)
 
 
+@admin_router.get("/search", response_model=UserList)
+def search(
+    query: Annotated[
+        str,
+        Query(
+            min_length=2,
+            max_length=50,
+            description="Se necesitan al menos 3 caracteres para hacer una busqueda",
+        ),
+    ],
+    offset: int = 0,
+    limit: int = 20,
+    svc: UserService = Depends(get_user_service),
+):
+    return svc.search(query, offset, limit)
+
+
 @admin_router.get("/{id}", response_model=UserDetail)
 def get_user_by_admin(
     id: Annotated[int, Path(ge=1)], svc: UserService = Depends(get_user_service)
