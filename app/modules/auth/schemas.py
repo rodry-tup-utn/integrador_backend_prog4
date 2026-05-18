@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, Literal
+from typing import Optional
 
 
 class JWTPayload(BaseModel):
