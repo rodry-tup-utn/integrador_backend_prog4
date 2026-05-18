@@ -3,7 +3,7 @@ from sqlmodel import Session, select, col
 from app.core.repository import BaseRepository
 from app.modules.user.models import User
 from typing import Sequence
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app.modules.user.schemas import UserAuthCredentials
 from sqlalchemy.orm import selectinload
 from app.modules.user.models import UserRoleLink
@@ -122,3 +122,35 @@ class UserRepository(BaseRepository["User"]):
         statement = select(Role).where(Role.code == code)
 
         return self.session.exec(statement).first()
+
+    def search(self, query: str, offset: int = 0, limit: int = 20) -> Sequence[User]:
+        statement = (
+            select(User)
+            .offset(offset)
+            .limit(limit)
+            .where(
+                or_(
+                    col(User.name).ilike(f"%{query}%"),
+                    col(User.lastname).ilike(f"%{query}%"),
+                    col(User.email).ilike(f"%{query}%"),
+                )
+            )
+            .options(selectinload(User.roles).selectinload(UserRoleLink.role_user))
+        )
+
+        return self.session.exec(statement).all()
+
+    def count_search_results(self, query: str) -> int:
+        statement = (
+            select(func.count())
+            .select_from(User)
+            .where(
+                or_(
+                    col(User.name).ilike(f"%{query}%"),
+                    col(User.lastname).ilike(f"%{query}%"),
+                    col(User.email).ilike(f"%{query}%"),
+                )
+            )
+        )
+
+        return self.session.exec(statement).one()
