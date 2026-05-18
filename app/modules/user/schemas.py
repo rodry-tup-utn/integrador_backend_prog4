@@ -16,6 +16,10 @@ class UserCreate(SQLModel):
     password: str = Field(max_length=255, min_length=8)
 
 
+class UserCreateByAdmin(UserCreate):
+    role_code: str = Field(max_length=20, min_length=1)
+
+
 class UserBase(SQLModel):
     id: int
     name: str
