@@ -302,3 +302,14 @@ class UserService:
                 roles=active_roles,
                 addresses=addresses_read,
             )
+
+    def search(self, query: str, offset: int = 0, limit: int = 20) -> UserList:
+        with UserUnitOfWork(self._session) as uow:
+            users = uow.users.search(query, offset, limit)
+            total = uow.users.count_search_results(query)
+
+            data = [UserPrivate.model_validate(u) for u in users]
+
+            result = UserList(data=data, total=total)
+
+        return result
