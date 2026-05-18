@@ -94,6 +94,9 @@ class UserRole(SQLModel):
 
 
 class UserPrivate(UserBase):
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
     roles: list[Role]
 
     @field_validator("roles", mode="before")
