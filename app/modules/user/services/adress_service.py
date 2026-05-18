@@ -39,7 +39,7 @@ class DeliveryAdressService:
                 city=data.city,
                 province=data.province,
                 zip_code=data.zip_code,
-                latitude=data.latitud,
+                latitude=data.latitude,
                 longitude=data.longitude,
                 is_main=data.is_main or False,
             )
