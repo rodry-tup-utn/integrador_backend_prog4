@@ -48,7 +48,7 @@ class AddressRead(SQLModel):
     city: str
     province: str
     zip_code: str
-    latitud: Decimal
+    latitude: Decimal
     longitude: Decimal
     is_main: bool
 
@@ -64,7 +64,7 @@ class AddressUpdate(SQLModel):
     city: str | None = None
     province: str | None = None
     zip_code: str | None = None
-    latitud: Decimal | None = None
+    latitude: Decimal | None = None
     longitude: Decimal | None = None
     is_main: bool | None = None
 
@@ -76,7 +76,7 @@ class AddressCreate(SQLModel):
     city: str = Field(max_length=100)
     province: str = Field(max_length=100)
     zip_code: str = Field(max_length=10)
-    latitud: Decimal = Field(
+    latitude: Decimal = Field(
         ge=-90.0, le=90.0, description="Latitud en grados, -90 a 90"
     )
     longitude: Decimal = Field(
