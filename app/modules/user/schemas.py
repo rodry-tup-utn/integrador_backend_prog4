@@ -1,6 +1,4 @@
 from sqlmodel import SQLModel, Field
-from pydantic import field_validator
-from app.modules.user.models import Role, UserRoleLink
 from datetime import datetime
 from decimal import Decimal
 
@@ -20,7 +18,7 @@ class UserCreateByAdmin(UserCreate):
     role_code: str = Field(max_length=20, min_length=1)
 
 
-class UserBase(SQLModel):
+class UserResponse(SQLModel):
     id: int
     name: str
     lastname: str
@@ -85,53 +83,46 @@ class AddressCreate(SQLModel):
     is_main: bool | None = Field(default=False)
 
 
-class UserRole(SQLModel):
-    role_code: str
+class UserRoleRead(SQLModel):
     role_user: RoleRead
     assigned_by_id: int
     expires_at: datetime | None
     created_at: datetime
 
 
-class UserPrivate(UserBase):
+class UserAdminRead(UserResponse):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
-    roles: list[Role]
-
-    @field_validator("roles", mode="before")
-    @classmethod
-    def convert_roles(cls, v):
-        if v and isinstance(v[0], UserRoleLink):
-            return [
-                Role.model_validate(link.role_user)
-                for link in v
-                if link.role_user and link.expires_at is None
-            ]
-        return v
+    roles: list[UserRoleRead]
 
 
-class UserDetail(UserBase):
-    roles: list[UserRole]
+class UserDetailRead(UserResponse):
+    roles: list[UserRoleRead]
 
 
-class UserProfile(UserBase):
-    roles: list[UserRole]
+class UserProfileRead(UserResponse):
+    roles: list[UserRoleRead]
     addresses: list[AddressRead]
 
 
-class UserLogin(SQLModel):
-    email: str = Field(max_length=255, min_length=4)
-    password: str = Field(max_length=255, min_length=8)
-
-
-class UserAuthCredentials(SQLModel):
+class UserAuthData(SQLModel):
     id: int
     name: str
     roles: list[str]
     hashed_pass: str
 
 
-class UserList(SQLModel):
-    data: list[UserPrivate]
+class UserSessionRead(UserResponse):
+    roles: list[str]
+
+
+class TokenPayloadData(SQLModel):
+    id: int
+    name: str
+    roles: list[str]
+
+
+class UserPaginatedRead(SQLModel):
+    data: list[UserAdminRead]
     total: int
