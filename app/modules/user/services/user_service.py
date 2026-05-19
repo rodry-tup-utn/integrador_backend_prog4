@@ -1,17 +1,18 @@
 from fastapi import HTTPException, status
 from app.modules.user.schemas import (
-    UserBase,
-    UserAuthCredentials,
+    UserResponse,
     UserCreate,
     UserCreateByAdmin,
     UserUpdate,
-    UserPrivate,
-    UserList,
-    UserDetail,
-    UserRole,
+    UserAdminRead,
+    UserPaginatedRead,
+    UserDetailRead,
+    UserRoleRead,
     RoleRead,
-    UserProfile,
+    UserProfileRead,
     AddressRead,
+    UserAuthData,
+    UserSessionRead,
 )
 from sqlmodel import Session
 from app.modules.user.unit_of_work import UserUnitOfWork
@@ -57,7 +58,7 @@ class UserService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Rol {code} inexistente")
         return role
 
-    def create(self, data: UserCreate) -> UserBase:
+    def create(self, data: UserCreate) -> UserResponse:
         with UserUnitOfWork(self._session) as uow:
             self._assert_email_unique(uow, data.email)
 
@@ -77,11 +78,11 @@ class UserService:
             )
             uow.user_role.add(user_role)
 
-            result = UserBase.model_validate(user)
+            result = UserResponse.model_validate(user)
 
         return result
 
-    def create_by_admin(self, data: UserCreateByAdmin, admin_id: int) -> UserBase:
+    def create_by_admin(self, data: UserCreateByAdmin, admin_id: int) -> UserResponse:
         with UserUnitOfWork(self._session) as uow:
             self._assert_email_unique(uow, data.email)
             role = self._get_role_by_code_or_404(uow, data.role_code)
@@ -101,11 +102,11 @@ class UserService:
             )
             uow.user_role.add(user_role)
 
-            result = UserBase.model_validate(user)
+            result = UserResponse.model_validate(user)
 
         return result
 
-    def update_profile(self, user_id: int, data: UserUpdate) -> UserPrivate:
+    def update_profile(self, user_id: int, data: UserUpdate) -> UserAdminRead:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_active_or_404(uow, user_id)
             update_data = data.model_dump(exclude_unset=True)
@@ -115,30 +116,30 @@ class UserService:
 
             user.updated_at = datetime.now(timezone.utc)
             uow.users.add(user)
-            result = UserPrivate.model_validate(user)
+            result = UserAdminRead.model_validate(user)
 
         return result
 
-    def get_by_id(self, user_id: int) -> UserDetail:
+    def get_by_id(self, user_id: int) -> UserDetailRead:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_or_404(uow, user_id)
-            result = UserDetail.model_validate(user)
+            result = UserDetailRead.model_validate(user)
 
         return result
 
-    def get_active_by_id(self, user_id: int) -> UserDetail:
+    def get_active_by_id(self, user_id: int) -> UserDetailRead:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_active_or_404(uow, user_id)
-            result = UserDetail.model_validate(user)
+            result = UserDetailRead.model_validate(user)
         return result
 
-    def get_active_private(self, user_id: int) -> UserPrivate:
+    def get_active_private(self, user_id: int) -> UserAdminRead:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_active_or_404(uow, user_id)
-            result = UserPrivate.model_validate(user)
+            result = UserAdminRead.model_validate(user)
         return result
 
-    def get_auth_credentials(self, email: str) -> UserAuthCredentials:
+    def get_auth_credentials(self, email: str) -> UserAuthData:
         with UserUnitOfWork(self._session) as uow:
             credentials = uow.users.get_auth_credential(email)
             if not credentials:
@@ -146,6 +147,27 @@ class UserService:
                     status.HTTP_404_NOT_FOUND, f"Usuario email {email} no encontrado"
                 )
             return credentials
+
+    def get_session_data(self, user_id: int) -> UserSessionRead:
+        with UserUnitOfWork(self._session) as uow:
+            user = uow.users.get_by_id(user_id, True)
+            if not user:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+
+            now = datetime.now(timezone.utc)
+            active_roles = [
+                link.role_code
+                for link in user.roles
+                if (link.expires_at is None or link.expires_at > now)
+            ]
+            result = UserSessionRead(
+                id=user.id,  # type: ignore
+                name=user.name,
+                lastname=user.lastname,
+                email=user.email,
+                roles=active_roles,
+            )
+        return result
 
     def soft_delete(self, user_id: int, admin_id: int):
         if user_id == admin_id:
@@ -158,7 +180,7 @@ class UserService:
             uow.users.delete(user)
         return status.HTTP_204_NO_CONTENT
 
-    def restore(self, user_id: int) -> UserBase:
+    def restore(self, user_id: int) -> UserResponse:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_or_404(uow, user_id)
             if user.deleted_at is None:
@@ -167,16 +189,16 @@ class UserService:
                     "No se puede restaurar un usuario activo",
                 )
             uow.users.restore(user)
-            result = UserBase.model_validate(user)
+            result = UserResponse.model_validate(user)
         return result
 
-    def get_all(self, offset: int = 0, limit: int = 20) -> UserList:
+    def get_all(self, offset: int = 0, limit: int = 20) -> UserPaginatedRead:
         with UserUnitOfWork(self._session) as uow:
             users = uow.users.get_all(offset, limit)
             total = uow.users.count()
-            data = [UserPrivate.model_validate(u) for u in users]
+            data = [UserAdminRead.model_validate(u) for u in users]
 
-            result = UserList(data=data, total=total)
+            result = UserPaginatedRead(data=data, total=total)
         return result
 
     def asign_role(self, user_id: int, role_code: str, user_assing_id: int):
@@ -236,7 +258,7 @@ class UserService:
 
             uow.user_role.add(user_role_link)
 
-    def get_user_with_active_roles(self, user_id: int) -> UserDetail:
+    def get_user_with_active_roles(self, user_id: int) -> UserDetailRead:
         with UserUnitOfWork(self._session) as uow:
             user = uow.users.get_by_id(user_id, True)
             if not user:
@@ -245,8 +267,7 @@ class UserService:
             now = datetime.utcnow()
 
             active_roles = [
-                UserRole(
-                    role_code=link.role_code,
+                UserRoleRead(
                     assigned_by_id=link.assigned_by_id,
                     expires_at=link.expires_at,
                     created_at=link.created_at,
@@ -256,7 +277,7 @@ class UserService:
                 if (link.expires_at is None or link.expires_at > now)
             ]
 
-            return UserDetail(
+            return UserDetailRead(
                 id=user.id,  # type: ignore
                 name=user.name,
                 lastname=user.lastname,
@@ -264,7 +285,7 @@ class UserService:
                 roles=active_roles,
             )
 
-    def get_user_profile(self, user_id: int) -> UserProfile:
+    def get_user_profile(self, user_id: int) -> UserProfileRead:
         with UserUnitOfWork(self._session) as uow:
             user = uow.users.get_with_roles_and_addresses(user_id, only_actives=True)
 
@@ -277,8 +298,7 @@ class UserService:
             now = datetime.utcnow()
 
             active_roles = [
-                UserRole(
-                    role_code=link.role_code,
+                UserRoleRead(
                     assigned_by_id=link.assigned_by_id,
                     expires_at=link.expires_at,
                     created_at=link.created_at,
@@ -294,7 +314,7 @@ class UserService:
                 if address.deleted_at is None
             ]
 
-            return UserProfile(
+            return UserProfileRead(
                 id=user.id,  # type: ignore
                 name=user.name,
                 lastname=user.lastname,
@@ -303,13 +323,13 @@ class UserService:
                 addresses=addresses_read,
             )
 
-    def search(self, query: str, offset: int = 0, limit: int = 20) -> UserList:
+    def search(self, query: str, offset: int = 0, limit: int = 20) -> UserPaginatedRead:
         with UserUnitOfWork(self._session) as uow:
             users = uow.users.search(query, offset, limit)
             total = uow.users.count_search_results(query)
 
-            data = [UserPrivate.model_validate(u) for u in users]
+            data = [UserAdminRead.model_validate(u) for u in users]
 
-            result = UserList(data=data, total=total)
+            result = UserPaginatedRead(data=data, total=total)
 
         return result

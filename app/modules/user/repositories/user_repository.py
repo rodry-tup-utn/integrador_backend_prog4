@@ -4,11 +4,10 @@ from app.core.repository import BaseRepository
 from app.modules.user.models import User
 from typing import Sequence
 from sqlalchemy import func, or_
-from app.modules.user.schemas import UserAuthCredentials
+from app.modules.user.schemas import UserAuthData
 from sqlalchemy.orm import selectinload
 from app.modules.user.models import UserRoleLink
 from app.modules.user.models import Role
-from app.modules.user.models import Address
 
 
 class UserRepository(BaseRepository["User"]):
@@ -98,7 +97,7 @@ class UserRepository(BaseRepository["User"]):
         self.session.flush()
         return user
 
-    def get_auth_credential(self, email: str) -> UserAuthCredentials | None:
+    def get_auth_credential(self, email: str) -> UserAuthData | None:
         statement = (
             select(User)
             .where(User.email == email, col(User.deleted_at).is_(None))
@@ -109,9 +108,15 @@ class UserRepository(BaseRepository["User"]):
         if not user:
             return None
 
-        roles = [link.role_user.code for link in user.roles]
+        now = datetime.now(timezone.utc)
+        # filtra solo roles que esten activos
+        roles = [
+            link.role_user.code
+            for link in user.roles
+            if link.role_user and (link.expires_at is None or link.expires_at > now)
+        ]
 
-        return UserAuthCredentials(
+        return UserAuthData(
             id=user.id,
             hashed_pass=user.hashed_pass,
             roles=roles,
