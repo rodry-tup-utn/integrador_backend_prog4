@@ -10,6 +10,7 @@ from app.modules.category.schemas import (
     CategoryNode,
     CategoryListPrivate,
     CategoryPrivate,
+    CategoryPath,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -64,6 +65,14 @@ def get_nodes_root(
     return svc.get_node_tree_from_root(depth)
 
 
+@router.get("/{id}/path", response_model=CategoryPath)
+def get_category_path(
+    id: Annotated[int, Path(ge=1)],
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_category_path(id)
+
+
 @router.get("/nodes/{parent_id}/children", response_model=list[CategoryNode])
 def get_nodes_children(
     parent_id: Annotated[int, Path(ge=1)],
@@ -73,7 +82,7 @@ def get_nodes_children(
     return svc.get_node_children_from_id(parent_id, depth)
 
 
-@router.patch("/{id}", response_model=CategoryPublic)
+@admin_router.patch("/{id}", response_model=CategoryPublic)
 def update(
     id: Annotated[int, Path(ge=1)],
     data: CategoryUpdate,

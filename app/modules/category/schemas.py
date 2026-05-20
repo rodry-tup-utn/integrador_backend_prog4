@@ -51,3 +51,7 @@ class CategoryList(SQLModel):
 class CategoryListPrivate(SQLModel):
     data: List[CategoryPrivate]
     total: int
+
+
+class CategoryPath(SQLModel):
+    path: list[str]
