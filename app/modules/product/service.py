@@ -286,3 +286,24 @@ class ProductService:
             categories=categories,
             ingredients=ingredients,
         )
+
+    def update_stock(self, product_id: int, stock: int) -> ProductPublic:
+        with ProductUnitOfWork(self._session) as uow:
+            product = self._get_active_or_404(uow, product_id)
+            product.stock = stock
+
+            uow.products.add(product)
+
+            result = ProductPublic.model_validate(product)
+
+        return result
+
+    def set_availability(self, product_id: int, is_available: bool) -> ProductPublic:
+        with ProductUnitOfWork(self._session) as uow:
+            product = self._get_active_or_404(uow, product_id)
+
+            if product.available != is_available:
+                product.available = is_available
+                uow.products.add(product)
+
+            return ProductPublic.model_validate(product)
