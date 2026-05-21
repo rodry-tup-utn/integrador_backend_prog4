@@ -6,6 +6,7 @@ from decimal import Decimal
 if TYPE_CHECKING:
     from app.modules.product_category.models import ProductCategoryLink
     from app.modules.product_ingredient.models import ProductIngredient
+    from app.modules.order_item.models import OrderItem
 
 
 class Product(SQLModel, table=True):
@@ -21,6 +22,7 @@ class Product(SQLModel, table=True):
 
     category_links: list["ProductCategoryLink"] = Relationship(back_populates="product")
     ingredients: list["ProductIngredient"] = Relationship(back_populates="product")
+    order_items: list["OrderItem"] = Relationship(back_populates="product")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = Field(default=None)
