@@ -2,6 +2,10 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import Mapped
 from decimal import Decimal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.modules.order.models import Order
 
 
 class User(SQLModel, table=True):
@@ -31,6 +35,8 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[UserRoleLink.assigned_by_id]"},
     )
     addresses: Mapped[list["Address"]] = Relationship(back_populates="user")
+
+    orders: list["Order"] = Relationship(back_populates="user")
 
 
 class Role(SQLModel, table=True):
@@ -95,3 +101,4 @@ class Address(SQLModel, table=True):
     deleted_at: datetime | None = Field(default=None)
 
     user: User = Relationship(back_populates="addresses")
+    orders: list["Order"] = Relationship(back_populates="address")
