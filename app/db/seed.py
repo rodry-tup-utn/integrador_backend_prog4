@@ -8,6 +8,7 @@ from app.modules.product.models import Product
 from app.modules.ingredient.models import Ingredient
 from datetime import datetime, timezone
 from app.modules.category.models import Category
+from app.modules.order.models import StateOrder, PaymentMethod
 
 datetime_now = datetime.now(timezone.utc)
 
@@ -246,9 +247,61 @@ CATEGORIES = [
     },
 ]
 
+ORDER_STATES = [
+    {
+        "code": "PENDING",
+        "description": "Pedido pendiente de procesar",
+        "order": 1,
+        "is_terminal": False,
+    },
+    {
+        "code": "CONFIRMED",
+        "description": "Pedido confirmado",
+        "order": 2,
+        "is_terminal": False,
+    },
+    {
+        "code": "IN_PREP",
+        "description": "Pedido en preparación",
+        "order": 3,
+        "is_terminal": False,
+    },
+    {
+        "code": "ON_THE_WAY",
+        "description": "Pedido en camino",
+        "order": 4,
+        "is_terminal": False,
+    },
+    {
+        "code": "CANCELLED",
+        "description": "Pedido cancelado",
+        "order": 5,
+        "is_terminal": True,
+    },
+    {
+        "code": "DELIVERED",
+        "description": "Pedido entregado al cliente",
+        "order": 6,
+        "is_terminal": True,
+    },
+]
+
+PAYMENT_METHODS = [
+    {
+        "code": "MERCADOPAGO",
+        "description": "Plataforma de pago de MercadoPago",
+        "available": True,
+    },
+    {"code": "EFECTIVO", "description": "Pago en efectivo", "available": True},
+    {
+        "code": "TRANSFERENCIA",
+        "description": "Pago con transferencia Bancarizada",
+        "available": True,
+    },
+]
+
 
 def run() -> None:
-    print("=== Seed de Usuarios y Roles) ===")
     create_db_and_tables()
 
     with Session(engine) as session:
@@ -388,6 +441,43 @@ def run() -> None:
         category_map[data_category["name"]] = category
 
         print(f"  [+] Categoria creada: {category.name}")
+
+    for state in ORDER_STATES:
+        existing = session.exec(
+            select(StateOrder).where(StateOrder.code == state["code"])
+        ).first()
+
+        if existing:
+            print(f"Ya existe el estado {state["code"]}")
+        else:
+            state = StateOrder(
+                code=state["code"],
+                description=state["description"],
+                order=state["order"],
+                is_terminal=state["is_terminal"],
+            )
+
+            session.add(state)
+
+        session.commit()
+
+    for payment in PAYMENT_METHODS:
+        existing = session.exec(
+            select(PaymentMethod).where(PaymentMethod.code == payment["code"])
+        ).first()
+
+        if existing:
+            print(f"Ya existe el metodo de pago {payment["code"]}")
+        else:
+            payment = PaymentMethod(
+                code=payment["code"],
+                description=payment["description"],
+                available=payment["available"],
+            )
+
+            session.add(payment)
+
+        session.commit()
 
 
 if __name__ == "__main__":
