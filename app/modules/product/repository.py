@@ -2,7 +2,7 @@ from typing import Sequence
 from sqlmodel import Session, select, col
 from app.core.repository import BaseRepository
 from app.modules.product.models import Product
-from sqlalchemy import func
+from sqlalchemy import func, update, case
 from datetime import datetime, timezone
 from sqlalchemy.orm import selectinload
 from app.modules.product_category.models import ProductCategoryLink
@@ -48,8 +48,12 @@ class ProductRepository(BaseRepository[Product]):
             select(Product)
             .where(Product.id == product_id)
             .options(
-                selectinload(Product.category_links).selectinload(ProductCategoryLink.category),
-                selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient),
+                selectinload(Product.category_links).selectinload(
+                    ProductCategoryLink.category
+                ),
+                selectinload(Product.ingredients).selectinload(
+                    ProductIngredient.ingredient
+                ),
             )
         )
         if active_only:
@@ -176,8 +180,40 @@ class ProductRepository(BaseRepository[Product]):
         )
         return self.session.exec(statement).all()
 
+    def get_by_ids(self, ids: list[int]) -> Sequence[Product]:
+        statement = select(Product).where(col(Product.id).in_(ids))
+        return self.session.exec(statement).all()
+
     def exists_active_by_id(self, product_id) -> bool:
         statement = select(Product.id).where(
             Product.id == product_id, col(Product.deleted_at).is_(None)
         )
         return self.session.exec(statement).first() is not None
+
+    def decrease_stock_batch(self, items: list[tuple[int, int]]) -> None:
+        """actualizar stock con batch, evita hacer una consulta por cada actualizacion"""
+        stmt = (
+            update(Product)
+            .where(col(Product.id).in_([pid for pid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Product.id == pid, Product.stock - qty) for pid, qty in items],
+                    else_=Product.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)
+
+    def increase_stock_batch(self, items: list[tuple[int, int]]) -> None:
+        """igual pero sumando stock."""
+        stmt = (
+            update(Product)
+            .where(col(Product.id).in_([pid for pid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Product.id == pid, Product.stock + qty) for pid, qty in items],
+                    else_=Product.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)
