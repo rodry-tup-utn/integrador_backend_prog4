@@ -280,12 +280,12 @@ class ProductService:
             product, categories, primary, ingredients = self._get_details_or_404(
                 uow, product_id, active_only=False
             )
-        return ProductAdminDetail(
-            **ProductAdmin.model_validate(product).model_dump(),
-            primary_category=primary,
-            categories=categories,
-            ingredients=ingredients,
-        )
+            return ProductAdminDetail(
+                **ProductAdmin.model_validate(product).model_dump(),
+                primary_category=primary,
+                categories=categories,
+                ingredients=ingredients,
+            )
 
     def update_stock(self, product_id: int, stock: int) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
