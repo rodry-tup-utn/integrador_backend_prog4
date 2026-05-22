@@ -12,7 +12,7 @@ class OrderHistorialRepository(BaseRepository["OrderHistorial"]):
     def create_entry(
         self,
         order_id: int,
-        state_from_code: str,
+        state_from_code: str | None,
         state_to_code: str,
         reason: str | None = None,
     ) -> OrderHistorial:
