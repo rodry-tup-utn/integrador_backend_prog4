@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, Query, Path, Body, status
+from fastapi import APIRouter, Depends, Query, Path, status
 from sqlmodel import Session
 from typing import Annotated
 from app.core.database import get_session
 from app.modules.order.services.order_service import OrderService
 from app.modules.order.schemas import (
     OrderCreate,
-    OrderPublic,
     OrderDetailPublic,
     OrderList,
     OrderStateChange,
@@ -38,7 +37,9 @@ orders_router = APIRouter(
 )
 
 
-@user_router.post("/", response_model=OrderDetailPublic, status_code=status.HTTP_201_CREATED)
+@user_router.post(
+    "/", response_model=OrderDetailPublic, status_code=status.HTTP_201_CREATED
+)
 def create_order(
     data: OrderCreate,
     user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
