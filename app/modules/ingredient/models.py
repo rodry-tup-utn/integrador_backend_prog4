@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 class Ingredient(SQLModel, table=True):
 
-    __tablename__ = "ingredient"
+    __tablename__ = "ingredient"  # type: ignore
 
     id: int = Field(default=None, primary_key=True)
     name: str = Field(max_length=100, min_length=2, unique=True, index=True)
