@@ -1,4 +1,4 @@
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from typing import Sequence
 from sqlalchemy.orm import joinedload
 
@@ -35,6 +35,13 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
             )
         )
 
+        return self.session.exec(statement).all()
+
+    # trae todos los ingredientes de un listado de product_id
+    def get_by_products(self, product_ids: list[int]) -> Sequence[ProductIngredient]:
+        statement = select(ProductIngredient).where(
+            col(ProductIngredient.product_id).in_(product_ids)
+        )
         return self.session.exec(statement).all()
 
     # Devuelve todos los productos asociados a determinado ingrediente
