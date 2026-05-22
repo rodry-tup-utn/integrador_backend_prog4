@@ -2,11 +2,11 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from decimal import Decimal
+from app.modules.order_item.models import OrderItem
 
 if TYPE_CHECKING:
     from app.modules.product_category.models import ProductCategoryLink
     from app.modules.product_ingredient.models import ProductIngredient
-    from app.modules.order_item.models import OrderItem
 
 
 class Product(SQLModel, table=True):
