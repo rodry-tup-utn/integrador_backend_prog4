@@ -19,7 +19,7 @@ class OrderRepository(BaseRepository["Order"]):
             selectinload(Order.user),
             selectinload(Order.address),
             selectinload(Order.state),
-            selectinload(Order.payload_method),
+            selectinload(Order.payment_method),
             selectinload(Order.order_items),
             selectinload(Order.historials),
         ]
