@@ -222,7 +222,11 @@ class UserService:
                 existing_link.expires_at = None
 
                 uow.user_role.add(existing_link)
+
                 return existing_link
+
+            user.updated_at = created_time
+            uow.users.add(user)
 
             user_role = UserRoleLink(
                 user_id=user.id,  # type: ignore
@@ -238,7 +242,7 @@ class UserService:
     def revoke_role(self, user_id: int, role_code: str) -> None:
         with UserUnitOfWork(self._session) as uow:
             self._get_role_by_code_or_404(uow, role_code)
-            self._get_active_or_404(uow, user_id)
+            user = self._get_active_or_404(uow, user_id)
 
             user_role_link = uow.user_role.get_by_user_id_and_role_code(
                 user_id, role_code
@@ -255,7 +259,9 @@ class UserService:
 
             actual_date = datetime.now(timezone.utc)
             user_role_link.expires_at = actual_date
+            user.updated_at = actual_date
 
+            uow.users.add(user)
             uow.user_role.add(user_role_link)
 
     def get_user_with_active_roles(self, user_id: int) -> UserDetailRead:
