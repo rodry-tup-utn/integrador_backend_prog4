@@ -62,3 +62,11 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
     def remove(self, relation: ProductIngredient) -> None:
         self.session.delete(relation)
         self.session.flush()
+
+    def get_product_ids_with_ingredients(self, product_ids: list[int]) -> set[int]:
+        statement = (
+            select(ProductIngredient.product_id)
+            .where(col(ProductIngredient.product_id).in_(product_ids))
+            .distinct()
+        )
+        return set(self.session.exec(statement).all())
