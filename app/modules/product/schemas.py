@@ -1,6 +1,8 @@
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal, Annotated
+from pydantic import Field as PydanticField
 
 
 class ProductCreate(SQLModel):
@@ -71,3 +73,17 @@ class ProductUpdate(SQLModel):
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int | None = Field(default=None, ge=1)
     stock: int | None = Field(ge=0, default=None)
+
+
+class ProductFilters(SQLModel):
+    search: Annotated[str | None, PydanticField(max_length=20, min_length=3)] = None
+    category_id: Annotated[int | None, PydanticField(ge=1)] = None
+    max_price: Annotated[Decimal | None, PydanticField(ge=0)] = None
+    min_price: Annotated[Decimal | None, PydanticField(ge=0)] = None
+    available: bool | None = None
+
+    offset: Annotated[int, PydanticField(ge=0)] = 0
+    limit: Annotated[int, PydanticField(ge=1)] = 20
+
+    sort_by: Literal["name", "base_price"] = "name"
+    order: Literal["asc", "desc"] = "asc"
