@@ -11,6 +11,7 @@ from app.modules.order.schemas import (
     OrderHistorialPublic,
     OrderUserPublic,
     OrderAddressPublic,
+    StateOrderPublic,
 )
 from app.modules.order_item.schemas import OrderItemPublic
 from app.modules.product.models import Product
@@ -19,9 +20,11 @@ from app.modules.user.models import Address
 PENDING_STATE = "PENDING"
 CANCELLED_STATE = "CANCELLED"
 IN_PREP = "IN_PREP"
+CONFIRMED_STATE = "CONFIRMED"
+DELIVERED = "DELIVERED"
 
-NOT_UPDATABLE_BY_CLIENT = {"PENDING", "CONFIRMED", "IN_PREP"}
-NOT_UPDATABLE_BY_STAFF = {"PENDING", "CONFIRMED"}
+TERMINAL_CLIENT = {CANCELLED_STATE, DELIVERED, IN_PREP}
+TERMINAL_STAFF = {CANCELLED_STATE, CONFIRMED_STATE}
 
 
 class OrderService:
@@ -133,6 +136,7 @@ class OrderService:
             user=OrderUserPublic.model_validate(order.user),
             address=OrderAddressPublic.model_validate(order.address),
             items=[OrderItemPublic.model_validate(i) for i in order.order_items],
+            state=StateOrderPublic.model_validate(order.state),
             historials=[
                 OrderHistorialPublic.model_validate(h) for h in order.historials
             ],
@@ -145,6 +149,21 @@ class OrderService:
                 status.HTTP_400_BAD_REQUEST,
                 "La orden se encuentra en un estado no modificable",
             )
+
+    def _restore_stock_for_simple_products(
+        self, uow: OrderUnitOfWork, items: list
+    ) -> None:
+        product_ids = [i.product_id for i in items]
+        ids_con_ingredientes = uow.product_ingredients.get_product_ids_with_ingredients(
+            product_ids
+        )
+        increase_items = [
+            (i.product_id, i.quantity)
+            for i in items
+            if i.product_id not in ids_con_ingredientes
+        ]
+        if increase_items:
+            uow.products.increase_stock_batch(increase_items)
 
     def create(self, data: OrderCreate, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -184,8 +203,8 @@ class OrderService:
                 reason="Pedido creado",
             )
 
-            decrease_items = [(item.product_id, item.quantity) for item in data.items]
-            uow.products.decrease_stock_batch(decrease_items)
+            # decrease_items = [(item.product_id, item.quantity) for item in data.items]
+            # uow.products.decrease_stock_batch(decrease_items)
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
@@ -228,6 +247,7 @@ class OrderService:
     ) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             order = uow.orders.get_by_id(order_id)
+
             if not order:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
             if order.user_id != user_id:
@@ -236,7 +256,7 @@ class OrderService:
                     "No tienes permiso para cancelar este pedido",
                 )
 
-            self._check_update_state(order.state_code, NOT_UPDATABLE_BY_CLIENT)
+            self._check_update_state(order.state_code, TERMINAL_CLIENT)
 
             state = self._check_state_order(uow, CANCELLED_STATE)
             if order.state_code == state.code:
@@ -256,8 +276,9 @@ class OrderService:
             )
 
             items = uow.order_items.get_by_order(order.id)  # type: ignore
-            increase_items = [(i.product_id, i.quantity) for i in items]
-            uow.products.increase_stock_batch(increase_items)
+
+            if old_state != PENDING_STATE:
+                self._restore_stock_for_simple_products(uow, list(items))
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
@@ -270,9 +291,26 @@ class OrderService:
             if not order:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
 
+            # logica para comprobar correlacion de estados
+            old_state = self._check_state_order(uow, order.state_code)
             new_state = self._check_state_order(uow, new_state_code)
 
-            self._check_update_state(order.state_code, NOT_UPDATABLE_BY_STAFF)
+            if new_state.order - old_state.order != 1:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "No puedes saltar mas de un estado"
+                )
+
+            new_state = self._check_state_order(uow, new_state_code)
+
+            # decrementar stock si pasa a confirmado
+            if new_state.code == CONFIRMED_STATE:
+                order_items = uow.order_items.get_by_order(order_id)
+                decrease_items = [
+                    (item.product_id, item.quantity) for item in order_items
+                ]
+                uow.products.decrease_stock_batch(decrease_items)
+
+            self._check_update_state(order.state_code, TERMINAL_STAFF)
 
             if order.state_code == new_state_code:
                 raise HTTPException(
@@ -292,9 +330,7 @@ class OrderService:
 
             if new_state_code == CANCELLED_STATE:
                 items = uow.order_items.get_by_order(order.id)  # type: ignore
-                uow.products.increase_stock_batch(
-                    [(i.product_id, i.quantity) for i in items]
-                )
+                self._restore_stock_for_simple_products(uow, list(items))
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
@@ -305,7 +341,7 @@ class OrderService:
             if not order:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
 
-            self._check_update_state(order.state_code, NOT_UPDATABLE_BY_STAFF)
+            self._check_update_state(order.state_code, TERMINAL_STAFF)
 
             state = self._check_state_order(uow, CANCELLED_STATE)
             if order.state_code == state.code:
@@ -325,8 +361,7 @@ class OrderService:
             )
 
             items = uow.order_items.get_by_order(order.id)  # type: ignore
-            increase_items = [(i.product_id, i.quantity) for i in items]
-            uow.products.increase_stock_batch(increase_items)
+            self._restore_stock_for_simple_products(uow, list(items))
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
