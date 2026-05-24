@@ -2,11 +2,14 @@ from typing import Sequence
 from sqlmodel import Session, select, col
 from app.core.repository import BaseRepository
 from app.modules.product.models import Product
-from sqlalchemy import func
+from sqlalchemy import func, update, case
 from datetime import datetime, timezone
 from sqlalchemy.orm import selectinload
+from app.modules.product.schemas import ProductFilters
 from app.modules.product_category.models import ProductCategoryLink
 from app.modules.product_ingredient.models import ProductIngredient
+
+SORT_FIELDS = {"name": Product.name, "base_price": Product.base_price}
 
 
 class ProductRepository(BaseRepository[Product]):
@@ -15,22 +18,72 @@ class ProductRepository(BaseRepository[Product]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Product)
 
-    def get_all_active(self, offset: int = 0, limit: int = 20) -> Sequence[Product]:
-        statement = (
-            select(Product)
-            .where(col(Product.deleted_at).is_(None))
-            .order_by(func.lower(Product.name))
-            .offset(offset)
-            .limit(limit)
-        )
+    def get_all_active(
+        self, filters: ProductFilters, only_actives=True
+    ) -> Sequence[Product]:
+
+        statement = select(Product).offset(filters.offset).limit(filters.limit)
+
+        if filters.search:
+            statement = statement.where(col(Product.name).ilike(f"%{filters.search}%"))
+
+        if only_actives:
+            statement = statement.where(col(Product.deleted_at).is_(None))
+
+        if filters.available:
+            statement = statement.where(Product.available == True)
+
+        if filters.category_id is not None:
+            statement = statement.where(
+                col(Product.id).in_(
+                    select(ProductCategoryLink.product_id).where(
+                        ProductCategoryLink.category_id == filters.category_id
+                    )
+                )
+            )
+
+        if filters.min_price is not None:
+            statement = statement.where(Product.base_price >= filters.min_price)
+
+        if filters.max_price is not None:
+            statement = statement.where(Product.base_price <= filters.max_price)
+
+        sort_column = SORT_FIELDS.get(filters.sort_by)
+
+        if filters.order == "asc":
+            statement = statement.order_by(col(sort_column).asc())
+        else:
+            statement = statement.order_by(col(sort_column).desc())
+
         return self.session.exec(statement).all()
 
-    def count_active(self) -> int:
-        statement = (
-            select(func.count())
-            .select_from(Product)
-            .where(col(Product.deleted_at).is_(None))
-        )
+    def count_query(self, filters: ProductFilters, only_actives: bool = True):
+        statement = select(func.count()).select_from(Product)
+
+        if only_actives:
+            statement = statement.where(col(Product.deleted_at).is_(None))
+
+        if filters.search:
+            statement = statement.where(col(Product.name).ilike(f"%{filters.search}%"))
+
+        if filters.available:
+            statement = statement.where(Product.available == True)
+
+        if filters.category_id is not None:
+            statement = statement.where(
+                col(Product.id).in_(
+                    select(ProductCategoryLink.product_id).where(
+                        ProductCategoryLink.category_id == filters.category_id
+                    )
+                )
+            )
+
+        if filters.min_price is not None:
+            statement = statement.where(Product.base_price >= filters.min_price)
+
+        if filters.max_price is not None:
+            statement = statement.where(Product.base_price <= filters.max_price)
+
         return self.session.exec(statement).one()
 
     def get_active_by_id(self, product_id: int) -> Product | None:
@@ -48,8 +101,12 @@ class ProductRepository(BaseRepository[Product]):
             select(Product)
             .where(Product.id == product_id)
             .options(
-                selectinload(Product.category_links).selectinload(ProductCategoryLink.category),
-                selectinload(Product.ingredients).selectinload(ProductIngredient.ingredient),
+                selectinload(Product.category_links).selectinload(
+                    ProductCategoryLink.category
+                ),
+                selectinload(Product.ingredients).selectinload(
+                    ProductIngredient.ingredient
+                ),
             )
         )
         if active_only:
@@ -60,13 +117,6 @@ class ProductRepository(BaseRepository[Product]):
     def get_by_name(self, product_name: str) -> Product | None:
         statement = select(Product).where(
             func.lower(Product.name) == product_name.lower()
-        )
-        return self.session.exec(statement).first()
-
-    def get_by_name_active(self, product_name: str) -> Product | None:
-        statement = select(Product).where(
-            func.lower(Product.name) == product_name.lower(),
-            col(Product.deleted_at).is_(None),
         )
         return self.session.exec(statement).first()
 
@@ -85,95 +135,8 @@ class ProductRepository(BaseRepository[Product]):
         self.session.flush()
         return product
 
-    def search_active_by_name(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> Sequence[Product]:
-        statement = (
-            select(Product)
-            .where(
-                col(Product.name).ilike(f"%{query}%"),
-                col(Product.deleted_at).is_(None),
-            )
-            .offset(offset)
-            .limit(limit)
-            .order_by(func.lower(Product.name))
-        )
-        return self.session.exec(statement).all()
-
-    def count_search_active_by_name(self, query: str) -> int:
-        statement = (
-            select(func.count())
-            .select_from(Product)
-            .where(
-                col(Product.name).ilike(f"%{query}%"),
-                col(Product.deleted_at).is_(None),
-            )
-        )
-        return self.session.exec(statement).one()
-
-    def search_by_name(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> Sequence[Product]:
-        statement = (
-            select(Product)
-            .where(col(Product.name).ilike(f"%{query}%"))
-            .offset(offset)
-            .limit(limit)
-            .order_by(func.lower(Product.name))
-        )
-        return self.session.exec(statement).all()
-
-    def count_search_by_name(self, query: str) -> int:
-        statement = (
-            select(func.count())
-            .select_from(Product)
-            .where(col(Product.name).ilike(f"%{query}%"))
-        )
-        return self.session.exec(statement).one()
-
-    def list_active_by_category_id(
-        self, category_id: int, offset: int = 0, limit: int = 20
-    ) -> Sequence[Product]:
-        statement = (
-            select(Product)
-            .join(ProductCategoryLink)
-            .where(
-                ProductCategoryLink.category_id == category_id,
-                col(Product.deleted_at).is_(None),
-            )
-            .offset(offset)
-            .limit(limit)
-            .order_by(func.lower(Product.name))
-        )
-        return self.session.exec(statement).all()
-
-    def count_by_category(self, category_id: int) -> int:
-        statement = (
-            select(func.count())
-            .select_from(Product)
-            .join(ProductCategoryLink)
-            .where(ProductCategoryLink.category_id == category_id)
-            .where(
-                ProductCategoryLink.category_id == category_id,
-                col(Product.deleted_at).is_(None),
-            )
-        )
-        return self.session.exec(statement).one()
-
-    def get_all_active_with_categories(
-        self, offset: int = 0, limit: int = 20
-    ) -> Sequence[Product]:
-        statement = (
-            select(Product)
-            .where(col(Product.deleted_at).is_(None))
-            .options(
-                selectinload(Product.category_links).selectinload(
-                    ProductCategoryLink.category
-                )
-            )
-            .offset(offset)
-            .limit(limit)
-        )
+    def get_by_ids(self, ids: list[int]) -> Sequence[Product]:
+        statement = select(Product).where(col(Product.id).in_(ids))
         return self.session.exec(statement).all()
 
     def exists_active_by_id(self, product_id) -> bool:
@@ -181,3 +144,31 @@ class ProductRepository(BaseRepository[Product]):
             Product.id == product_id, col(Product.deleted_at).is_(None)
         )
         return self.session.exec(statement).first() is not None
+
+    def decrease_stock_batch(self, items: list[tuple[int, int]]) -> None:
+        """actualizar stock con batch, evita hacer una consulta por cada actualizacion"""
+        stmt = (
+            update(Product)
+            .where(col(Product.id).in_([pid for pid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Product.id == pid, Product.stock - qty) for pid, qty in items],
+                    else_=Product.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)
+
+    def increase_stock_batch(self, items: list[tuple[int, int]]) -> None:
+        """igual pero sumando stock."""
+        stmt = (
+            update(Product)
+            .where(col(Product.id).in_([pid for pid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Product.id == pid, Product.stock + qty) for pid, qty in items],
+                    else_=Product.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)

@@ -98,7 +98,7 @@ class IngredientService:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_active_or_404(uow, ingredient_id)
 
-            if data.name and data.name != ingredient.name:
+            if data.name and data.name.lower() != ingredient.name.lower():
                 self._assert_name_unique(uow, data.name)
 
             update_data = data.model_dump(exclude_unset=True)

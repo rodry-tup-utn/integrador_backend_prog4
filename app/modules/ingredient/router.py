@@ -12,7 +12,7 @@ from app.modules.ingredient.schemas import (
     IngredientPrivate,
     IngredientListFull,
 )
-from app.modules.auth.dependencies import get_current_admin_user
+from app.modules.auth.dependencies import require_role
 
 
 def get_ingredient_service(
@@ -28,7 +28,7 @@ router = APIRouter(
 admin_router = APIRouter(
     prefix="/admin/ingredient",
     tags=["Admin - Ingredientes"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 # -- Endpoints Públicos --------------------------------------------------

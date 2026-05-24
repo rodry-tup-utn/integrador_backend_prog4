@@ -4,15 +4,17 @@ from app.modules.category.service import CategoryService
 from app.modules.category.schemas import (
     CategoryCreate,
     CategoryList,
+    CategoryParentUpdate,
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
     CategoryListPrivate,
     CategoryPrivate,
+    CategoryPath,
 )
 from app.core.database import get_session
 from typing import Annotated
-from app.modules.auth.dependencies import get_current_admin_user
+from app.modules.auth.dependencies import require_role
 
 
 def get_category_service(session: Session = Depends(get_session)) -> CategoryService:
@@ -23,7 +25,7 @@ router = APIRouter(prefix="/category", tags=["Public - Categorias"])
 admin_router = APIRouter(
     prefix="/admin/category",
     tags=["Admin - Categorias"],
-    dependencies=[Depends(get_current_admin_user)],
+    dependencies=[Depends(require_role(["ADMIN"]))],
 )
 
 
@@ -63,6 +65,14 @@ def get_nodes_root(
     return svc.get_node_tree_from_root(depth)
 
 
+@router.get("/{id}/path", response_model=CategoryPath)
+def get_category_path(
+    id: Annotated[int, Path(ge=1)],
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_category_path(id)
+
+
 @router.get("/nodes/{parent_id}/children", response_model=list[CategoryNode])
 def get_nodes_children(
     parent_id: Annotated[int, Path(ge=1)],
@@ -72,7 +82,7 @@ def get_nodes_children(
     return svc.get_node_children_from_id(parent_id, depth)
 
 
-@router.patch("/{id}", response_model=CategoryPublic)
+@admin_router.patch("/{id}", response_model=CategoryPublic)
 def update(
     id: Annotated[int, Path(ge=1)],
     data: CategoryUpdate,
@@ -123,6 +133,15 @@ def list_root(
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.get_root_categories(offset, limit)
+
+
+@admin_router.patch("/{id}/parent", response_model=CategoryPrivate)
+def change_parent(
+    id: Annotated[int, Path(ge=1)],
+    data: CategoryParentUpdate,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.change_parent(id, data.parent_id)
 
 
 @admin_router.patch("/{id}/restore", response_model=CategoryPrivate)

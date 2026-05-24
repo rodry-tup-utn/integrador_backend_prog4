@@ -1,15 +1,30 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from sqlmodel import Session
 from app.core.config import settings
 from app.core.database import get_session
-import app.modules.user.models as UserModel
-from app.modules.user.service import UserService
-from app.modules.auth.schemas import UserTokenData
-from app.modules.user.schemas import UserPrivate
+from app.modules.user.services.user_service import UserService
+from typing import Annotated
+from app.modules.user.schemas import UserDetailRead, TokenPayloadData
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
+    async def __call__(self, request: Request) -> str | None:
+        token = request.cookies.get("access_token")
+        if not token:
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No autenticado",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                return None
+        return token
+
+
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="auth/login")
 
 forbidden_exception = HTTPException(
     status_code=status.HTTP_403_FORBIDDEN,
@@ -29,7 +44,7 @@ def get_user_service(session: Session = Depends(get_session)) -> UserService:
 
 def get_token_payload(
     token: str = Depends(oauth2_scheme),
-) -> UserTokenData:
+) -> TokenPayloadData:
 
     try:
         payload = jwt.decode(
@@ -42,31 +57,38 @@ def get_token_payload(
         if user_id is None or role is None or name is None:
             raise unauthorized_exception
 
-        return UserTokenData(id=int(user_id), role=role, name=name)
+        return TokenPayloadData(id=int(user_id), roles=role, name=name)
     except jwt.PyJWTError:
         raise unauthorized_exception
 
 
 def get_current_user(
-    token_data: UserTokenData = Depends(get_token_payload),
+    token_data: TokenPayloadData = Depends(get_token_payload),
     svc: UserService = Depends(get_user_service),
-):
+) -> UserDetailRead:
     try:
-        user = svc.get_active_by_id(token_data.id)
+        user = svc.get_user_with_active_roles(token_data.id)
         return user
     except HTTPException:
         raise unauthorized_exception
 
 
-def get_current_admin_user(
-    current_user: UserTokenData = Depends(get_token_payload),
-    svc: UserService = Depends(get_user_service),
-) -> UserPrivate:
-    try:
-        user = svc.get_active_by_id(current_user.id)
-        if user.role != UserModel.Role.ADMIN:
-            raise forbidden_exception
-    except Exception:
-        raise forbidden_exception
+def require_role(allowed_roles: list[str]):
+    async def role_checker(
+        current_user: Annotated[UserDetailRead, Depends(get_current_user)],
+    ) -> UserDetailRead:
 
-    return user
+        user_roles = [link.role_user.code for link in current_user.roles]
+        for code in user_roles:
+            if code in allowed_roles:
+                return current_user
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Permisos insuficientes. Tus roles son {user_roles}. "
+                f"Se requiere uno de: {allowed_roles}"
+            ),
+        )
+
+    return role_checker  # Retorna la dependencia configurada

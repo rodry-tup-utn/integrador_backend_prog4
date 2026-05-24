@@ -1,4 +1,4 @@
-PROJECT_NAME=integrador
+PROJECT_NAME=food-store
 
 init:
 	python3 -m venv .venv

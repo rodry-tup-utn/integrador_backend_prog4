@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class ProductIngredient(SQLModel, table=True):
     """Tabla intermedia entre Producto e Ingrediente con atributo propio"""
 
-    __tablename__ = "product_ingredient"
+    __tablename__ = "product_ingredient"  # type: ignore
 
     product_id: int = Field(foreign_key="product.id", primary_key=True)
     ingredient_id: int = Field(foreign_key="ingredient.id", primary_key=True)

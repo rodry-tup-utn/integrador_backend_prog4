@@ -1,4 +1,4 @@
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from typing import Sequence
 from sqlalchemy.orm import joinedload
 
@@ -37,6 +37,13 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
 
         return self.session.exec(statement).all()
 
+    # trae todos los ingredientes de un listado de product_id
+    def get_by_products(self, product_ids: list[int]) -> Sequence[ProductIngredient]:
+        statement = select(ProductIngredient).where(
+            col(ProductIngredient.product_id).in_(product_ids)
+        )
+        return self.session.exec(statement).all()
+
     # Devuelve todos los productos asociados a determinado ingrediente
     def get_products_by_ingredient(
         self, ingredient_id: int
@@ -55,3 +62,11 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
     def remove(self, relation: ProductIngredient) -> None:
         self.session.delete(relation)
         self.session.flush()
+
+    def get_product_ids_with_ingredients(self, product_ids: list[int]) -> set[int]:
+        statement = (
+            select(ProductIngredient.product_id)
+            .where(col(ProductIngredient.product_id).in_(product_ids))
+            .distinct()
+        )
+        return set(self.session.exec(statement).all())

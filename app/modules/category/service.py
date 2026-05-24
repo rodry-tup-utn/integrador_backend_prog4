@@ -8,6 +8,7 @@ from app.modules.category.schemas import (
     CategoryNode,
     CategoryPrivate,
     CategoryListPrivate,
+    CategoryPath,
 )
 from sqlmodel import Session
 from app.modules.category.unit_of_work import CategoryUnitOfWork
@@ -96,34 +97,46 @@ class CategoryService:
 
     # Update
 
+    def _change_parent(
+        self, uow: CategoryUnitOfWork, category: Category, new_parent_id: int | None
+    ) -> None:
+        if new_parent_id is not None:
+            products = uow.category_products.has_products(category.id)  # type: ignore // categoria siempre tiene id
+            if products:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No puedes modificar el arbol de jerarquias en una categoria con productos",
+                )
+            if category.id == new_parent_id:
+                raise HTTPException(400, "No puedes asignar la categoria a si misma")
+
+            self._get_active_or_404(uow, new_parent_id)
+
+            categories = list(uow.categories.get_all_active_no_paged())
+            category_map = self._build_category_map(categories)
+
+            if self._would_create_cycle(category, new_parent_id, category_map):
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
+                )
+
+        category.parent_id = new_parent_id
+        category.updated_at = datetime.now(timezone.utc)
+
+    def change_parent(
+        self, category_id: int, new_parent_id: int | None
+    ) -> CategoryPrivate:
+        with CategoryUnitOfWork(self._session) as uow:
+            category = self._get_active_or_404(uow, category_id)
+            self._change_parent(uow, category, new_parent_id)
+            uow.categories.add(category)
+            return CategoryPrivate.model_validate(category)
+
     def update(self, category_id: int, data: CategoryUpdate) -> CategoryPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_active_or_404(uow, category_id)
-            list_categories = list(uow.categories.get_all_active_no_paged())
-            category_map = self._build_category_map(list_categories)
 
-            if data.parent_id is not None:
-                products = uow.category_products.has_products(category_id)
-                if products:
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
-                        "No puedes modificar el arbol de jerarquias en una categoria con productos ",
-                    )
-                if category.id == data.parent_id:
-                    raise HTTPException(
-                        400, "No puedes asignar la categoria a si misma"
-                    )
-
-                # verificar que nueva categoria padre exista
-                self._get_active_or_404(uow, data.parent_id)
-
-                # validar si la nueva asignacion crear algun ciclo
-                if self._would_create_cycle(category, data.parent_id, category_map):
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
-                    )
-
-            if data.name and data.name != category.name:
+            if data.name and data.name.lower() != category.name.lower():
                 self._assert_name_unique(uow, data.name)
 
             patch = data.model_dump(exclude_unset=True)
@@ -241,12 +254,11 @@ class CategoryService:
 
         return result
 
-    def get_category_chain(self, child_id: int) -> list[int]:
-        with CategoryUnitOfWork(self._session) as uow:
-            category = self._get_active_or_404(uow, child_id)
-            categories_list = list(uow.categories.get_all_active_no_paged())
-            category_map = self._build_category_map(categories_list)
-            parents_chain_id = self._build_parent_chain(category, category_map)
+    def _get_category_chain(self, uow: CategoryUnitOfWork, child_id: int) -> list[int]:
+        category = self._get_active_or_404(uow, child_id)
+        categories_list = list(uow.categories.get_all_active_no_paged())
+        category_map = self._build_category_map(categories_list)
+        parents_chain_id = self._build_parent_chain(category, category_map)
 
         return parents_chain_id
 
@@ -259,12 +271,14 @@ class CategoryService:
 
         return result
 
-    def get_root_categories(self, offset: int = 0, limit: int = 20):
+    def get_root_categories(
+        self, offset: int = 0, limit: int = 20
+    ) -> CategoryListPrivate:
         with CategoryUnitOfWork(self._session) as uow:
             categories = list(uow.categories.get_all_root(offset, limit))
-            data = [CategoryPublic.model_validate(c) for c in categories]
+            data = [CategoryPrivate.model_validate(c) for c in categories]
             count = uow.categories.count_root_active()
-            result = CategoryList(data=data, total=count)
+            result = CategoryListPrivate(data=data, total=count)
 
         return result
 
@@ -322,6 +336,16 @@ class CategoryService:
             children=hijos_formateados,
         )
 
+    def _build_category_path(
+        self, uow: CategoryUnitOfWork, category_id: int
+    ) -> list[str]:
+        chain_ids = self._get_category_chain(uow, category_id)
+
+        categories = {c.id: c.name for c in uow.categories.get_all_active_no_paged()}
+        result = reversed([categories[id] for id in chain_ids if id in categories])
+
+        return list(result)
+
     def get_node_tree_from_root(self, max_depth: int = 2) -> list[CategoryNode]:
         with CategoryUnitOfWork(self._session) as uow:
             categorias = list(uow.categories.get_all_active_no_paged())
@@ -372,3 +396,8 @@ class CategoryService:
                 for hijo in hijos_raw
                 if hijo.deleted_at is None
             ]
+
+    def get_category_path(self, category_id: int) -> CategoryPath:
+        with CategoryUnitOfWork(self._session) as uow:
+            data = self._build_category_path(uow, category_id)
+        return CategoryPath(path=data)

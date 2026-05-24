@@ -14,7 +14,7 @@ class CategoryRepository(BaseRepository[Category]):
         super().__init__(session, Category)
 
     def get_by_name(self, category_name: str) -> Category | None:
-        statement = select(Category).where(Category.name == category_name)
+        statement = select(Category).where(func.lower(Category.name) == category_name.lower())
         return self.session.exec(statement).first()
 
     def get_by_name_active(self, category_name: str) -> Category | None:
