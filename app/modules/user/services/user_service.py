@@ -250,7 +250,7 @@ class UserService:
 
             if user_role_link.expires_at is not None:
                 raise HTTPException(
-                    status.http_400, "El rol ya se encuentra desactivado"
+                    status.HTTP_400_BAD_REQUEST, "El rol ya se encuentra desactivado"
                 )
 
             actual_date = datetime.now(timezone.utc)
