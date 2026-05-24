@@ -14,9 +14,7 @@ class UserRoleLinkRepository(BaseRepository["UserRoleLink"]):
     def get_by_user_id_and_role_code(
         self, user_id: int, role_code: str
     ) -> UserRoleLink | None:
-        statement = (
-            select(UserRoleLink)
-            .where(UserRoleLink.role_code == role_code, UserRoleLink.user_id == user_id)
-            .where(UserRoleLink)
+        statement = select(UserRoleLink).where(
+            UserRoleLink.role_code == role_code, UserRoleLink.user_id == user_id
         )
         return self.session.exec(statement).first()
