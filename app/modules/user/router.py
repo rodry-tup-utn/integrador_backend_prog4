@@ -218,3 +218,12 @@ def restore_user(
     id: Annotated[int, Path(ge=1)], svc: UserService = Depends(get_user_service)
 ):
     return svc.restore(id)
+
+
+@admin_router.patch("/update/{user_id}", response_model=UserAdminRead)
+def update_by_admin(
+    data: UserUpdate,
+    user_id: Annotated[int, Path(ge=1)],
+    svc: UserService = Depends(get_user_service),
+):
+    return svc.update_profile(user_id, data)
