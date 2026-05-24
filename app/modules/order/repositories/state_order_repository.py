@@ -16,19 +16,3 @@ class StateOrderRepository(BaseRepository["StateOrder"]):
     def get_all_ordered(self) -> Sequence[StateOrder]:
         statement = select(StateOrder).order_by(col(StateOrder.order))
         return self.session.exec(statement).all()
-
-    def get_non_terminal(self) -> Sequence[StateOrder]:
-        statement = (
-            select(StateOrder)
-            .where(StateOrder.is_terminal == False)
-            .order_by(col(StateOrder.order))
-        )
-        return self.session.exec(statement).all()
-
-    def get_terminal(self) -> Sequence[StateOrder]:
-        statement = (
-            select(StateOrder)
-            .where(StateOrder.is_terminal == True)
-            .order_by(col(StateOrder.order))
-        )
-        return self.session.exec(statement).all()
