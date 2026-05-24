@@ -11,6 +11,7 @@ from app.modules.product.schemas import (
     ProductListAdmin,
     IngredientBase,
     ProductAdminDetail,
+    ProductFilters,
 )
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
@@ -137,35 +138,30 @@ class ProductService:
             result = ProductPublic.model_validate(product)
         return result
 
-    def get_by_id(self, product_id: int) -> ProductPublic:
+    def list_all_public(self, filters: ProductFilters) -> ProductList:
         with ProductUnitOfWork(self._session) as uow:
-            product = self._get_active_or_404(uow, product_id)
-            result = ProductPublic.model_validate(product)
-        return result
+            products = uow.products.get_all_active(filters, True)
+            total = uow.products.count_query(
+                filters,
+            )
 
-    def get_by_id_admin(self, product_id: int) -> ProductAdmin:
-        with ProductUnitOfWork(self._session) as uow:
-            product = self._get_or_404(uow, product_id)
-            result = ProductAdmin.model_validate(product)
-        return result
+            data = [ProductPublic.model_validate(p) for p in products]
 
-    def list_all(self, offset: int = 0, limit: int = 20) -> ProductList:
-        with ProductUnitOfWork(self._session) as uow:
-            products = uow.products.get_all_active(offset, limit)
-            total = uow.products.count_active()
-
-            data = [ProductPublic.model_validate(c) for c in products]
             result = ProductList(data=data, total=total)
 
         return result
 
-    def list_all_admin(self, offset: int = 0, limit: int = 20) -> ProductListAdmin:
+    def list_all_admin(self, filters: ProductFilters):
         with ProductUnitOfWork(self._session) as uow:
-            products = uow.products.get_all(offset, limit)
-            total = uow.products.count()
+            products = uow.products.get_all_active(filters, False)
+            total = uow.products.count_query(
+                filters,
+            )
 
             data = [ProductAdmin.model_validate(p) for p in products]
+
             result = ProductListAdmin(data=data, total=total)
+
         return result
 
     def update(self, product_id: int, data: ProductUpdate) -> ProductPublic:
@@ -206,30 +202,6 @@ class ProductService:
             result = ProductPublic.model_validate(product)
         return result
 
-    def search_active_by_name(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> ProductList:
-        query = query.strip()
-        with ProductUnitOfWork(self._session) as uow:
-            products = uow.products.search_active_by_name(query, offset, limit)
-            count = uow.products.count_search_active_by_name(query)
-
-            result = [ProductPublic.model_validate(p) for p in products]
-
-        return ProductList(data=result, total=count)
-
-    def search_all_by_name(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> ProductListAdmin:
-        query = query.strip()
-        with ProductUnitOfWork(self._session) as uow:
-            products = uow.products.search_by_name(query, offset, limit)
-            count = uow.products.count_search_by_name(query)
-
-            result = [ProductAdmin.model_validate(p) for p in products]
-
-        return ProductListAdmin(data=result, total=count)
-
     def delete(self, product_id: int):
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
@@ -247,20 +219,6 @@ class ProductService:
                 )
             uow.products.restore(product)
             result = ProductAdmin.model_validate(product)
-        return result
-
-    def get_by_category(
-        self, category_id: int, offset: int = 0, limit: int = 20
-    ) -> ProductList:
-        with ProductUnitOfWork(self._session) as uow:
-            self._get_category_active_or_404(uow, category_id)
-            products = uow.products.list_active_by_category_id(
-                category_id, offset, limit
-            )
-            data = [ProductPublic.model_validate(p) for p in products]
-            count = uow.products.count_by_category(category_id)
-
-            result = ProductList(data=data, total=count)
         return result
 
     def get_active_by_id_with_details(self, product_id: int) -> ProductDetail:
