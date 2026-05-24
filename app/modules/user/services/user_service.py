@@ -177,7 +177,7 @@ class UserService:
             )
         with UserUnitOfWork(self._session) as uow:
             user = self._get_active_or_404(uow, user_id)
-            uow.users.delete(user)
+            uow.users.soft_delete(user)
         return status.HTTP_204_NO_CONTENT
 
     def restore(self, user_id: int) -> UserResponse:
