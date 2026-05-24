@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
+from sqlalchemy import Column, DateTime
 from app.modules.user.models import User, Address
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -43,7 +44,10 @@ class OrderHistorial(SQLModel, table=True):
     state_from_code: str | None = Field(foreign_key="state_order.code")
     state_to_code: str = Field(foreign_key="state_order.code")
     reason: str | None = Field(default=None, max_length=255)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
     state_from: StateOrder = Relationship(
         back_populates="historials_from",
@@ -75,6 +79,15 @@ class Order(SQLModel, table=True):
     historials: list["OrderHistorial"] = Relationship(back_populates="order")
     order_items: list["OrderItem"] = Relationship(back_populates="order")
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )

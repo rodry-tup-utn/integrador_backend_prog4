@@ -264,7 +264,7 @@ class UserService:
             if not user:
                 raise HTTPException(status.http_404, "Usuario no encontrado")
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             active_roles = [
                 UserRoleRead(
@@ -295,7 +295,7 @@ class UserService:
                     detail="Usuario no encontrado",
                 )
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             active_roles = [
                 UserRoleRead(

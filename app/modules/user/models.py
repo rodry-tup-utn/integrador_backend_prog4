@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Mapped
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from sqlalchemy import DateTime, Column
 
 if TYPE_CHECKING:
     from app.modules.order.models import Order
@@ -21,9 +22,18 @@ class User(SQLModel, table=True):
     )
     phone_number: str | None = Field(max_length=20, default=None)
     hashed_pass: str = Field()
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
     roles: Mapped[list["UserRoleLink"]] = Relationship(
         back_populates="user",
@@ -62,8 +72,14 @@ class UserRoleLink(SQLModel, table=True):
     )
 
     assigned_by_id: int = Field(foreign_key="user.id")
-    expires_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
     user: User | None = Relationship(
         back_populates="roles",
@@ -96,9 +112,18 @@ class Address(SQLModel, table=True):
     )
     is_main: bool = Field(default=False)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
     user: User = Relationship(back_populates="addresses")
     orders: list["Order"] = Relationship(back_populates="address")

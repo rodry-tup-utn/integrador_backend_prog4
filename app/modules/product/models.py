@@ -2,6 +2,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from decimal import Decimal
+from sqlalchemy import Column, DateTime
 from app.modules.order_item.models import OrderItem
 
 if TYPE_CHECKING:
@@ -24,6 +25,15 @@ class Product(SQLModel, table=True):
     ingredients: list["ProductIngredient"] = Relationship(back_populates="product")
     order_items: list["OrderItem"] = Relationship(back_populates="product")
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )

@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from decimal import Decimal
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer
+from sqlalchemy import Column, Integer, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from typing import TYPE_CHECKING
 
@@ -26,7 +26,10 @@ class OrderItem(SQLModel, table=True):
         sa_column=Column(ARRAY(Integer)),
     )
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
 
     order: "Order" = Relationship(back_populates="order_items")
     product: "Product" = Relationship(back_populates="order_items")
