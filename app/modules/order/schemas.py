@@ -27,6 +27,11 @@ class OrderAddressPublic(SQLModel):
     province: str
 
 
+class StateOrderPublic(SQLModel):
+    code: str
+    description: str
+
+
 class OrderHistorialPublic(SQLModel):
     id: int
     state_from_code: str | None
@@ -51,6 +56,7 @@ class OrderPublic(SQLModel):
 class OrderDetailPublic(OrderPublic):
     user: OrderUserPublic
     address: OrderAddressPublic
+    state: StateOrderPublic
     items: list[OrderItemPublic]
     historials: list[OrderHistorialPublic]
 
