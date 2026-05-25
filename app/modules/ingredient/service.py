@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.modules.ingredient.models import Ingredient
 from app.modules.ingredient.schemas import (
     IngredientCreate,
+    IngredientFilters,
     IngredientList,
     IngredientPublic,
     IngredientUpdate,
@@ -76,17 +77,17 @@ class IngredientService:
 
     # -- List --------------------------------------------------
 
-    def list_all(self, offset: int = 0, limit: int = 20) -> IngredientList:
+    def list_all(self, filters: IngredientFilters) -> IngredientList:
         with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.get_all_active_ingredients(offset, limit)
-            total = uow.ingredientRepo.count_active_ingredients()
+            ingredients = uow.ingredientRepo.get_all_with_filters(filters, only_actives=True)
+            total = uow.ingredientRepo.count_with_filters(filters, only_actives=True)
             data = [IngredientPublic.model_validate(i) for i in ingredients]
             return IngredientList(data=data, total=total)
 
-    def list_all_admin(self, offset: int = 0, limit: int = 20) -> IngredientListFull:
+    def list_all_admin(self, filters: IngredientFilters) -> IngredientListFull:
         with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.get_all_ordered(offset, limit)
-            total = uow.ingredientRepo.count()
+            ingredients = uow.ingredientRepo.get_all_with_filters(filters, only_actives=False)
+            total = uow.ingredientRepo.count_with_filters(filters, only_actives=False)
             data = [IngredientPrivate.model_validate(i) for i in ingredients]
             return IngredientListFull(data=data, total=total)
 
@@ -115,40 +116,6 @@ class IngredientService:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_active_or_404(uow, ingredient_id)
             uow.ingredientRepo.soft_delete_ingredient(ingredient)
-
-    # -- Search --------------------------------------------------
-
-    def search_ingredient(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> IngredientList:
-        query = query.strip()
-
-        if not query:
-            return IngredientList(data=[], total=0)
-
-        with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.search_active_ingredients_by_name(
-                query, offset, limit
-            )
-            total = uow.ingredientRepo.count_search_active_by_name(query)
-            data = [IngredientPublic.model_validate(i) for i in ingredients]
-            return IngredientList(data=data, total=total)
-
-    def search_ingredient_admin(
-        self, query: str, offset: int = 0, limit: int = 20
-    ) -> IngredientListFull:
-        query = query.strip()
-
-        if not query:
-            return IngredientListFull(data=[], total=0)
-
-        with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.search_ingredients_by_name(
-                query, offset, limit
-            )
-            total = uow.ingredientRepo.count_search_by_name(query)
-            data = [IngredientPrivate.model_validate(i) for i in ingredients]
-            return IngredientListFull(data=data, total=total)
 
     # -- Restore --------------------------------------------------
 
