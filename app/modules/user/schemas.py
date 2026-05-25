@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 from decimal import Decimal
+from pydantic import BaseModel
 
 
 class UserCreate(SQLModel):
@@ -126,3 +127,8 @@ class TokenPayloadData(SQLModel):
 class UserPaginatedRead(SQLModel):
     data: list[UserAdminRead]
     total: int
+
+
+class UpdatePass(BaseModel):
+    old_pass: str
+    new_pass: str = Field(max_length=255, min_length=8)

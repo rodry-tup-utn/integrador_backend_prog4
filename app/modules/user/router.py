@@ -16,6 +16,7 @@ from app.modules.user.schemas import (
     AddressRead,
     TokenPayloadData,
     UserSessionRead,
+    UpdatePass,
 )
 from typing import Annotated
 from app.core.database import get_session
@@ -124,6 +125,15 @@ def restore_address(
     svc: DeliveryAdressService = Depends(get_address_service),
 ):
     return svc.restore(id, user.id)
+
+
+@user_router.patch("/password")
+def update_password(
+    data: UpdatePass,
+    user: UserDetailRead = Depends(get_current_user),
+    svc: UserService = Depends(get_user_service),
+):
+    return svc.update_password(user.id, data)
 
 
 # --- PUBLIC ROUTES ---

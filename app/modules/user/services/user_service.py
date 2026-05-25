@@ -13,12 +13,13 @@ from app.modules.user.schemas import (
     AddressRead,
     UserAuthData,
     UserSessionRead,
+    UpdatePass,
 )
 from sqlmodel import Session
 from app.modules.user.unit_of_work import UserUnitOfWork
 from app.modules.user.models import User, Role, UserRoleLink
 from datetime import datetime, timezone
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 
 DEFAULT_ROLE = "CLIENT"
 
@@ -339,3 +340,20 @@ class UserService:
             result = UserPaginatedRead(data=data, total=total)
 
         return result
+
+    def update_password(self, user_id: int, data: UpdatePass):
+        with UserUnitOfWork(self._session) as uow:
+            user = self._get_active_or_404(uow, user_id)
+
+            if not verify_password(data.old_pass, user.hashed_pass):
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, "Contraseña incorrecta"
+                )
+
+            new_hashed_pass = get_password_hash(data.new_pass)
+
+            user.hashed_pass = new_hashed_pass
+
+            uow.users.add(user)
+
+        return {"message": "Contraseña cambiada exitosamente"}
