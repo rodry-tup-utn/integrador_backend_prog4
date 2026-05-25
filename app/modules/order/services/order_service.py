@@ -178,6 +178,15 @@ class OrderService:
 
         return order
 
+    def _get_or_404(self, uow: OrderUnitOfWork, order_id: int):
+        order = uow.orders.get_by_id(order_id)
+        if not order:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, f"Orden id {id} no encontrada"
+            )
+
+        return order
+
     def create(self, data: OrderCreate, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             product_ids = [item.product_id for item in data.items]
@@ -224,9 +233,7 @@ class OrderService:
 
     def get_by_id(self, order_id: int, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
-            order = uow.orders.get_by_id_with_details(order_id)
-            if not order:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+            order = self._get_or_404(uow, order_id)
             if order.user_id != user_id:
                 raise HTTPException(
                     status.HTTP_403_FORBIDDEN,
@@ -236,9 +243,7 @@ class OrderService:
 
     def get_by_id_admin(self, order_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
-            order = uow.orders.get_by_id_with_details(order_id)
-            if not order:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+            order = self._get_or_404(uow, order_id)
             return self._order_to_detail(order)
 
     def list_by_user(self, user_id: int, filters: OrderClientFilters) -> OrderList:
@@ -266,10 +271,7 @@ class OrderService:
         self, order_id: int, user_id: int, reason: str = "Cancelado por el usuario"
     ) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
-            order = uow.orders.get_by_id(order_id)
-
-            if not order:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+            order = self._get_or_404(uow, order_id)
             if order.user_id != user_id:
                 raise HTTPException(
                     status.HTTP_403_FORBIDDEN,
@@ -310,9 +312,7 @@ class OrderService:
         self, order_id: int, new_state_code: str, reason: str | None = None
     ) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
-            order = uow.orders.get_by_id(order_id)
-            if not order:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+            order = self._get_or_404(uow, order_id)
 
             # logica para comprobar correlacion de estados
             old_state = self._check_state_order(uow, order.state_code)
@@ -361,9 +361,7 @@ class OrderService:
 
     def cancel_by_staff(self, order_id: int, reason: str) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
-            order = uow.orders.get_by_id(order_id)
-            if not order:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+            order = self._get_or_404(uow, order_id)
 
             self._check_update_state(order.state_code, TERMINAL_STAFF)
 
@@ -390,3 +388,16 @@ class OrderService:
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
+
+    def soft_delete(self, order_id: int):
+        with OrderUnitOfWork(self._session) as uow:
+            order = self._get_or_404(uow, order_id)
+
+            if order.deleted_at is not None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "La orden ya se encuentra borrada"
+                )
+
+            now = datetime.now(timezone.utc)
+            order.deleted_at = now
+            uow.orders.add(order)
