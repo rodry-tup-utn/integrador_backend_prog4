@@ -5,12 +5,56 @@ from datetime import datetime, timezone
 
 from app.core.repository import BaseRepository
 from app.modules.ingredient.models import Ingredient
+from app.modules.ingredient.schemas import IngredientFilters
+
+SORT_FIELDS = {"name": Ingredient.name, "created_at": Ingredient.created_at}
 
 
 class IngredientRepository(BaseRepository[Ingredient]):
 
     def __init__(self, session: Session) -> None:
         super().__init__(session, Ingredient)
+
+    def get_all_with_filters(
+        self, filters: IngredientFilters, only_actives: bool = True
+    ) -> Sequence[Ingredient]:
+        statement = select(Ingredient)
+
+        if only_actives:
+            statement = statement.where(col(Ingredient.deleted_at).is_(None))
+
+        if filters.search:
+            statement = statement.where(
+                col(Ingredient.name).ilike(f"%{filters.search}%")
+            )
+
+        if filters.is_allergen is not None:
+            statement = statement.where(Ingredient.is_allergen == filters.is_allergen)
+
+        sort_column = SORT_FIELDS.get(filters.sort_by, Ingredient.name)
+        order_fn = col(sort_column).asc if filters.order == "asc" else col(sort_column).desc
+        statement = statement.order_by(order_fn())
+
+        statement = statement.offset(filters.offset).limit(filters.limit)
+        return self.session.exec(statement).all()
+
+    def count_with_filters(
+        self, filters: IngredientFilters, only_actives: bool = True
+    ) -> int:
+        statement = select(func.count()).select_from(Ingredient)
+
+        if only_actives:
+            statement = statement.where(col(Ingredient.deleted_at).is_(None))
+
+        if filters.search:
+            statement = statement.where(
+                col(Ingredient.name).ilike(f"%{filters.search}%")
+            )
+
+        if filters.is_allergen is not None:
+            statement = statement.where(Ingredient.is_allergen == filters.is_allergen)
+
+        return self.session.exec(statement).one()
 
     # Busca un ingrediente por su nombre exacto, si no lo encuentra devuelve None
     def get_ingredient_by_name(self, ingredient_name: str) -> Ingredient | None:
