@@ -11,6 +11,7 @@ from app.modules.order.schemas import (
     OrderClientFilters,
     OrderStateChange,
     OrderCancelByStaff,
+    OrderAdminList,
 )
 from app.modules.auth.dependencies import require_role, get_token_payload
 from app.modules.user.schemas import TokenPayloadData
@@ -77,12 +78,12 @@ def cancel_my_order(
     return svc.cancel(id, user_data.id)
 
 
-@admin_router.get("/", response_model=OrderList)
+@admin_router.get("/", response_model=OrderAdminList)
 def list_all_orders_admin(
     svc: Annotated[OrderService, Depends(get_order_service)],
     filters: OrderFilters = Depends(),
 ):
-    return svc.list_all(filters)
+    return svc.list_all_admin(filters)
 
 
 @admin_router.get("/{id}", response_model=OrderDetailPublic)

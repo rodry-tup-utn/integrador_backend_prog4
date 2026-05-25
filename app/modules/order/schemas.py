@@ -19,6 +19,7 @@ class OrderUserPublic(SQLModel):
     id: int
     name: str
     lastname: str
+    email: str
 
 
 class OrderAddressPublic(SQLModel):
@@ -55,6 +56,10 @@ class OrderPublic(SQLModel):
     created_at: datetime
 
 
+class OrderAdmin(OrderPublic):
+    user: OrderUserPublic
+
+
 class OrderDetailPublic(OrderPublic):
     user: OrderUserPublic
     address: OrderAddressPublic
@@ -65,6 +70,11 @@ class OrderDetailPublic(OrderPublic):
 
 class OrderList(SQLModel):
     data: list[OrderPublic]
+    total: int
+
+
+class OrderAdminList(SQLModel):
+    data: list[OrderAdmin]
     total: int
 
 

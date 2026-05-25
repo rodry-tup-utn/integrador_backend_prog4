@@ -14,6 +14,8 @@ from app.modules.order.schemas import (
     OrderUserPublic,
     OrderAddressPublic,
     StateOrderPublic,
+    OrderAdmin,
+    OrderAdminList,
 )
 from app.modules.order_item.schemas import OrderItemPublic
 from app.modules.product.models import Product
@@ -243,6 +245,15 @@ class OrderService:
         filters_data = filters.model_dump()
         filters_data["user_id"] = user_id
         return self.list_all(OrderFilters(**filters_data))
+
+    def list_all_admin(self, filters: OrderFilters) -> OrderAdminList:
+        with OrderUnitOfWork(self._session) as uow:
+            orders = uow.orders.get_all_with_filters(filters, False)
+            total = uow.orders.count_with_filters(filters, False)
+
+            data = [OrderAdmin.model_validate(o) for o in orders]
+
+            return OrderAdminList(data=data, total=total)
 
     def list_all(self, filters: OrderFilters) -> OrderList:
         with OrderUnitOfWork(self._session) as uow:
