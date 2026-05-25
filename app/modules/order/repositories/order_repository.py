@@ -109,9 +109,7 @@ class OrderRepository(BaseRepository["Order"]):
                 col(User.lastname).ilike(f"%{filters.user_lastname}%")
             )
         if filters.user_name:
-            statement = statement.where(
-                col(User.lastname).ilike(f"%{filters.user_name}%")
-            )
+            statement = statement.where(col(User.name).ilike(f"%{filters.user_name}%"))
 
         if filters.user_id is not None:
             statement = statement.where(Order.user_id == filters.user_id)
