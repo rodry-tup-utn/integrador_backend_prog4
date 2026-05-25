@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlmodel import Session
 from typing import Annotated
 from app.core.database import get_session
@@ -7,6 +7,8 @@ from app.modules.order.schemas import (
     OrderCreate,
     OrderDetailPublic,
     OrderList,
+    OrderFilters,
+    OrderClientFilters,
     OrderStateChange,
     OrderCancelByStaff,
 )
@@ -50,12 +52,11 @@ def create_order(
 
 @user_router.get("/", response_model=OrderList)
 def list_my_orders(
-    svc: Annotated[OrderService, Depends(get_order_service)],
     user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    svc: Annotated[OrderService, Depends(get_order_service)],
+    filters: OrderClientFilters = Depends(),
 ):
-    return svc.list_by_user(user_data.id, offset, limit)
+    return svc.list_by_user(user_data.id, filters)
 
 
 @user_router.get("/{id}", response_model=OrderDetailPublic)
@@ -79,10 +80,9 @@ def cancel_my_order(
 @admin_router.get("/", response_model=OrderList)
 def list_all_orders_admin(
     svc: Annotated[OrderService, Depends(get_order_service)],
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    filters: OrderFilters = Depends(),
 ):
-    return svc.list_all(offset, limit)
+    return svc.list_all(filters)
 
 
 @admin_router.get("/{id}", response_model=OrderDetailPublic)
@@ -96,10 +96,9 @@ def get_order_by_admin(
 @orders_router.get("/", response_model=OrderList)
 def list_all_orders_staff(
     svc: Annotated[OrderService, Depends(get_order_service)],
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    filters: OrderFilters = Depends(),
 ):
-    return svc.list_all(offset, limit)
+    return svc.list_all(filters)
 
 
 @orders_router.get("/{id}", response_model=OrderDetailPublic)
