@@ -78,28 +78,20 @@ def cancel_my_order(
     return svc.cancel(id, user_data.id)
 
 
-@admin_router.get("/", response_model=OrderAdminList)
-def list_all_orders_admin(
-    svc: Annotated[OrderService, Depends(get_order_service)],
-    filters: OrderFilters = Depends(),
-):
-    return svc.list_all_admin(filters)
-
-
-@admin_router.get("/{id}", response_model=OrderDetailPublic)
-def get_order_by_admin(
+@admin_router.delete("/{id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+def soft_delete(
     id: Annotated[int, Path(ge=1)],
     svc: Annotated[OrderService, Depends(get_order_service)],
 ):
-    return svc.get_by_id_admin(id)
+    svc.soft_delete(id)
 
 
-@orders_router.get("/", response_model=OrderList)
+@orders_router.get("/", response_model=OrderAdminList)
 def list_all_orders_staff(
     svc: Annotated[OrderService, Depends(get_order_service)],
     filters: OrderFilters = Depends(),
 ):
-    return svc.list_all(filters)
+    return svc.list_all_admin(filters)
 
 
 @orders_router.get("/{id}", response_model=OrderDetailPublic)
