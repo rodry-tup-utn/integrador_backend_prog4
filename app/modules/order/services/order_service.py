@@ -8,6 +8,8 @@ from app.modules.order.schemas import (
     OrderPublic,
     OrderDetailPublic,
     OrderList,
+    OrderFilters,
+    OrderClientFilters,
     OrderHistorialPublic,
     OrderUserPublic,
     OrderAddressPublic,
@@ -16,6 +18,7 @@ from app.modules.order.schemas import (
 from app.modules.order_item.schemas import OrderItemPublic
 from app.modules.product.models import Product
 from app.modules.user.models import Address
+from datetime import datetime, timezone
 
 PENDING_STATE = "PENDING"
 CANCELLED_STATE = "CANCELLED"
@@ -165,6 +168,14 @@ class OrderService:
         if increase_items:
             uow.products.increase_stock_batch(increase_items)
 
+    def _update_order(self, uow: OrderUnitOfWork, order: Order):
+
+        now = datetime.now(timezone.utc)
+        order.updated_at = now
+        uow.orders.add(order)
+
+        return order
+
     def create(self, data: OrderCreate, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             product_ids = [item.product_id for item in data.items]
@@ -228,17 +239,15 @@ class OrderService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
             return self._order_to_detail(order)
 
-    def list_by_user(self, user_id: int, offset: int = 0, limit: int = 20) -> OrderList:
-        with OrderUnitOfWork(self._session) as uow:
-            orders = uow.orders.get_by_user_id(user_id, offset, limit)
-            total = uow.orders.count_by_user(user_id)
-            data = [OrderPublic.model_validate(o) for o in orders]
-            return OrderList(data=data, total=total)
+    def list_by_user(self, user_id: int, filters: OrderClientFilters) -> OrderList:
+        filters_data = filters.model_dump()
+        filters_data["user_id"] = user_id
+        return self.list_all(OrderFilters(**filters_data))
 
-    def list_all(self, offset: int = 0, limit: int = 20) -> OrderList:
+    def list_all(self, filters: OrderFilters) -> OrderList:
         with OrderUnitOfWork(self._session) as uow:
-            orders = uow.orders.get_all(offset, limit)
-            total = uow.orders.count()
+            orders = uow.orders.get_all_with_filters(filters)
+            total = uow.orders.count_with_filters(filters)
             data = [OrderPublic.model_validate(o) for o in orders]
             return OrderList(data=data, total=total)
 
@@ -266,6 +275,7 @@ class OrderService:
                 )
 
             old_state = order.state_code
+
             uow.orders.update_state(order, state.code)
 
             uow.historials.create_entry(
@@ -279,6 +289,8 @@ class OrderService:
 
             if old_state != PENDING_STATE:
                 self._restore_stock_for_simple_products(uow, list(items))
+
+            order = self._update_order(uow, order)
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
@@ -332,6 +344,7 @@ class OrderService:
                 items = uow.order_items.get_by_order(order.id)  # type: ignore
                 self._restore_stock_for_simple_products(uow, list(items))
 
+            order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
 
@@ -363,5 +376,6 @@ class OrderService:
             items = uow.order_items.get_by_order(order.id)  # type: ignore
             self._restore_stock_for_simple_products(uow, list(items))
 
+            order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
