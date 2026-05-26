@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 from datetime import datetime
-from typing import List
+from typing import List, Literal
 
 
 class IngredientCreate(SQLModel):
@@ -36,3 +36,12 @@ class IngredientList(SQLModel):
 class IngredientListFull(SQLModel):
     data: List[IngredientPrivate]
     total: int
+
+
+class IngredientFilters(SQLModel):
+    search: str | None = None
+    is_allergen: bool | None = None
+    offset: int = 0
+    limit: int = 20
+    sort_by: Literal["name", "created_at"] = "name"
+    order: Literal["asc", "desc"] = "asc"

@@ -41,8 +41,15 @@ class OrderRepository(BaseRepository["Order"]):
         )
         return self.session.exec(statement).first()
 
-    def get_all_with_filters(self, filters: OrderFilters) -> Sequence[Order]:
+    def get_all_with_filters(
+        self, filters: OrderFilters, only_actives: bool = True
+    ) -> Sequence[Order]:
         statement = select(Order).offset(filters.offset).limit(filters.limit)
+
+        if only_actives:
+            statement = statement.where(col(Order.deleted_at).is_(None))
+        else:
+            statement = statement.options(selectinload(Order.user))
 
         # join en caso de mandar email o lastname
         if filters.user_email or filters.user_lastname or filters.user_name:
@@ -81,8 +88,13 @@ class OrderRepository(BaseRepository["Order"]):
 
         return self.session.exec(statement).all()
 
-    def count_with_filters(self, filters: OrderFilters) -> int:
+    def count_with_filters(
+        self, filters: OrderFilters, only_actives: bool = True
+    ) -> int:
         statement = select(func.count()).select_from(Order)
+
+        if only_actives:
+            statement = statement.where(col(Order.deleted_at).is_(None))
 
         if filters.user_email or filters.user_lastname or filters.user_name:
             statement = statement.join(User, Order.user_id == User.id)
@@ -97,9 +109,7 @@ class OrderRepository(BaseRepository["Order"]):
                 col(User.lastname).ilike(f"%{filters.user_lastname}%")
             )
         if filters.user_name:
-            statement = statement.where(
-                col(User.lastname).ilike(f"%{filters.user_name}%")
-            )
+            statement = statement.where(col(User.name).ilike(f"%{filters.user_name}%"))
 
         if filters.user_id is not None:
             statement = statement.where(Order.user_id == filters.user_id)
