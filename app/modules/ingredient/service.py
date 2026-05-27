@@ -11,6 +11,7 @@ from app.modules.ingredient.schemas import (
     IngredientUpdate,
     IngredientPrivate,
     IngredientListFull,
+    UpdateStockIngredient,
 )
 
 from app.modules.ingredient.unit_of_work import IngredientUnitOfWork
@@ -79,14 +80,18 @@ class IngredientService:
 
     def list_all(self, filters: IngredientFilters) -> IngredientList:
         with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.get_all_with_filters(filters, only_actives=True)
+            ingredients = uow.ingredientRepo.get_all_with_filters(
+                filters, only_actives=True
+            )
             total = uow.ingredientRepo.count_with_filters(filters, only_actives=True)
             data = [IngredientPublic.model_validate(i) for i in ingredients]
             return IngredientList(data=data, total=total)
 
     def list_all_admin(self, filters: IngredientFilters) -> IngredientListFull:
         with IngredientUnitOfWork(self._session) as uow:
-            ingredients = uow.ingredientRepo.get_all_with_filters(filters, only_actives=False)
+            ingredients = uow.ingredientRepo.get_all_with_filters(
+                filters, only_actives=False
+            )
             total = uow.ingredientRepo.count_with_filters(filters, only_actives=False)
             data = [IngredientPrivate.model_validate(i) for i in ingredients]
             return IngredientListFull(data=data, total=total)
@@ -129,4 +134,18 @@ class IngredientService:
                 )
 
             uow.ingredientRepo.restore_ingredient(ingredient)
+            return IngredientPrivate.model_validate(ingredient)
+
+    def update_stock(
+        self, ingredient_id: int, data: UpdateStockIngredient
+    ) -> IngredientPrivate:
+        with IngredientUnitOfWork(self._session) as uow:
+            ingredient = self._get_or_404(uow, ingredient_id)
+
+            now = datetime.now(timezone.utc)
+            ingredient.stock = data.stock
+            ingredient.updated_at = now
+
+            uow.ingredientRepo.add(ingredient)
+
             return IngredientPrivate.model_validate(ingredient)
