@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path, Body
+from fastapi import APIRouter, Depends, Path
 from sqlmodel import Session
 from app.modules.product.service import ProductService
 from app.modules.product.schemas import (
@@ -11,6 +11,8 @@ from app.modules.product.schemas import (
     ProductListAdmin,
     ProductAdminDetail,
     ProductFilters,
+    UpdateStock,
+    UpdateAbailability,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -31,26 +33,26 @@ admin_router = APIRouter(
 stock_router = APIRouter(
     prefix="/stock",
     tags=["Stock - Products"],
-    dependencies=[Depends(require_role(["STOCK"]))],
+    dependencies=[Depends(require_role(["STOCK", "ADMIN"]))],
 )
 
 
 @stock_router.patch("/{id}/update")
 def update_stock(
     id: Annotated[int, Path(ge=1)],
-    stock: Annotated[int, Body(ge=0)],
+    data: UpdateStock,
     svc: ProductService = Depends(get_product_service),
 ) -> ProductPublic:
-    return svc.update_stock(id, stock)
+    return svc.update_stock(id, data)
 
 
 @stock_router.patch("/{id}/available")
 def set_availablility(
     id: Annotated[int, Path(ge=1)],
-    is_available: bool,
+    data: UpdateAbailability,
     svc: ProductService = Depends(get_product_service),
 ) -> ProductPublic:
-    return svc.set_availability(id, is_available)
+    return svc.set_availability(id, data)
 
 
 @router.get("/", response_model=ProductList)

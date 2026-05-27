@@ -87,3 +87,11 @@ class ProductFilters(SQLModel):
 
     sort_by: Literal["name", "base_price"] = "name"
     order: Literal["asc", "desc"] = "asc"
+
+
+class UpdateStock(SQLModel):
+    stock: int
+
+
+class UpdateAbailability(SQLModel):
+    available: bool

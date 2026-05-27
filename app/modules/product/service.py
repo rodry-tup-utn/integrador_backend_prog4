@@ -12,6 +12,8 @@ from app.modules.product.schemas import (
     IngredientBase,
     ProductAdminDetail,
     ProductFilters,
+    UpdateStock,
+    UpdateAbailability,
 )
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
@@ -245,10 +247,10 @@ class ProductService:
                 ingredients=ingredients,
             )
 
-    def update_stock(self, product_id: int, stock: int) -> ProductPublic:
+    def update_stock(self, product_id: int, data: UpdateStock) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
-            product.stock = stock
+            product.stock = data.stock
 
             uow.products.add(product)
 
@@ -256,12 +258,14 @@ class ProductService:
 
         return result
 
-    def set_availability(self, product_id: int, is_available: bool) -> ProductPublic:
+    def set_availability(
+        self, product_id: int, data: UpdateAbailability
+    ) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
 
-            if product.available != is_available:
-                product.available = is_available
+            if product.available != data.available:
+                product.available = data.available
                 uow.products.add(product)
 
             return ProductPublic.model_validate(product)
