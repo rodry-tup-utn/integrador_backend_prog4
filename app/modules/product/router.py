@@ -13,6 +13,7 @@ from app.modules.product.schemas import (
     ProductFilters,
     UpdateStock,
     UpdateAbailability,
+    UpdateType,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -109,6 +110,15 @@ def update(
 ):
 
     return svc.update(id, data)
+
+
+@admin_router.patch("/{id}/type", response_model=ProductAdmin)
+def update_type(
+    id: Annotated[int, Path(ge=1)],
+    data: UpdateType,
+    svc: ProductService = Depends(get_product_service),
+):
+    svc.update_type(id, data)
 
 
 @admin_router.get("/", response_model=ProductListAdmin)
