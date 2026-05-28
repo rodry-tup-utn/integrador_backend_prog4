@@ -18,7 +18,7 @@ from app.modules.order.schemas import (
     OrderAdminList,
 )
 from app.modules.order_item.schemas import OrderItemPublic
-from app.modules.product.models import Product
+from app.modules.product.models import Product, ProductType
 from app.modules.user.models import Address
 from datetime import datetime, timezone
 
@@ -42,7 +42,7 @@ class OrderService:
         products = uow.products.get_by_ids(product_ids)
         return {p.id: p for p in products}  # type: ignore
 
-    def _check_stock(self, items: list, product_map: dict[int, Product]) -> None:
+    def _check_stock_final(self, items: list, product_map: dict[int, Product]) -> None:
         for item in items:
             product = product_map.get(item.product_id)
             if not product:
@@ -50,12 +50,72 @@ class OrderService:
                     status.HTTP_404_NOT_FOUND,
                     f"Producto con id {item.product_id} no encontrado",
                 )
-            if product.stock < item.quantity:
+            if product.stock is not None and product.stock < item.quantity:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
                     f"Stock insuficiente para '{product.name}': "
                     f"disponible {product.stock}, solicitado {item.quantity}",
                 )
+
+    # crea diccionario con id de ingrediente y cantidad necesaria (multiplicando cantidad de producto por cantidad de cada ingrediente)
+    def _compute_ingredient_needs(
+        self, uow: OrderUnitOfWork, items: list[tuple[int, int]]
+    ) -> dict[int, Decimal]:
+        product_ids = [product_id for product_id, _ in items]
+        all_relations = uow.product_ingredients.get_by_products(product_ids)
+
+        needs: dict[int, Decimal] = {}
+        for pid, qty in items:
+            for rel in all_relations:
+                if rel.product_id == pid:
+                    needs[rel.ingredient_id] = (
+                        needs.get(rel.ingredient_id, Decimal("0"))
+                        + rel.quantity_ingredient * qty
+                    )
+        return needs
+
+    def _validate_ingredient_stock(
+        self, uow: OrderUnitOfWork, items: list[tuple[int, int]]
+    ) -> None:
+        needs = self._compute_ingredient_needs(uow, items)
+        ingredients = {
+            i.id: i for i in uow.ingredients.get_active_by_ids(list(needs.keys()))
+        }
+
+        for ing_id, required in needs.items():
+            ing = ingredients.get(ing_id)
+            if not ing or (ing.stock is not None and ing.stock < required):
+                name = ing.name if ing else str(ing_id)
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"Stock insuficiente del ingrediente '{name}': "
+                    f"necesario {required}",
+                )
+
+    def _validate_and_split_items(
+        self, uow: OrderUnitOfWork, items: list, product_map: dict[int, Product]
+    ) -> tuple[list, list]:
+        final_items, manufactured_items = [], []
+        for item in items:
+            product = product_map.get(item.product_id)
+            if not product:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    f"Producto con id {item.product_id} no encontrado",
+                )
+            if product.type == ProductType.MANUFACTURED:
+                manufactured_items.append(item)
+            else:
+                final_items.append(item)
+
+        if final_items:
+            self._check_stock_final(final_items, product_map)
+        if manufactured_items:
+            self._validate_ingredient_stock(
+                uow, [(i.product_id, i.quantity) for i in manufactured_items]
+            )
+
+        return final_items, manufactured_items
 
     def _build_items_data(
         self, items: list, product_map: dict[int, Product]
@@ -159,13 +219,9 @@ class OrderService:
         self, uow: OrderUnitOfWork, items: list
     ) -> None:
         product_ids = [i.product_id for i in items]
-        ids_con_ingredientes = uow.product_ingredients.get_product_ids_with_ingredients(
-            product_ids
-        )
+        final_ids = uow.products.get_final_product_ids(product_ids)
         increase_items = [
-            (i.product_id, i.quantity)
-            for i in items
-            if i.product_id not in ids_con_ingredientes
+            (i.product_id, i.quantity) for i in items if i.product_id in final_ids
         ]
         if increase_items:
             uow.products.increase_stock_batch(increase_items)
@@ -192,8 +248,10 @@ class OrderService:
             product_ids = [item.product_id for item in data.items]
             product_map = self._get_product_map(uow, product_ids)
 
-            # validar stock
-            self._check_stock(data.items, product_map)
+            final_items, manufactured_items = self._validate_and_split_items(
+                uow, data.items, product_map
+            )
+
             # validar ingredientes removibles
             self._validate_personalization(uow, data.items)
             # validar metodo de pago
@@ -224,9 +282,6 @@ class OrderService:
                 state_to_code=state.code,
                 reason="Pedido creado",
             )
-
-            # decrease_items = [(item.product_id, item.quantity) for item in data.items]
-            # uow.products.decrease_stock_batch(decrease_items)
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             return self._order_to_detail(order_detail)  # type: ignore
@@ -327,11 +382,24 @@ class OrderService:
 
             # decrementar stock si pasa a confirmado
             if new_state.code == CONFIRMED_STATE:
-                order_items = uow.order_items.get_by_order(order_id)
-                decrease_items = [
-                    (item.product_id, item.quantity) for item in order_items
-                ]
-                uow.products.decrease_stock_batch(decrease_items)
+                product_map = self._get_product_map(
+                    uow, [i.product_id for i in order.order_items]
+                )
+
+                final_items, manufactured_items = self._validate_and_split_items(
+                    uow, order.order_items, product_map
+                )
+
+                if final_items:
+                    uow.products.decrease_stock_batch(
+                        [(i.product_id, i.quantity) for i in final_items]
+                    )
+                if manufactured_items:
+                    needs = self._compute_ingredient_needs(
+                        uow,
+                        [(i.product_id, i.quantity) for i in manufactured_items],
+                    )
+                    uow.ingredients.decrease_stock_batch(list(needs.items()))
 
             self._check_update_state(order.state_code, TERMINAL_STAFF)
 
