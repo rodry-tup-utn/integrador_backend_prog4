@@ -1,7 +1,8 @@
 from sqlmodel import Session, select, col
-from sqlalchemy import func
+from sqlalchemy import func, case, update
 from typing import Sequence
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from app.core.repository import BaseRepository
 from app.modules.ingredient.models import Ingredient
@@ -102,3 +103,17 @@ class IngredientRepository(BaseRepository[Ingredient]):
         )
 
         return self.session.exec(statement).all()
+
+    def decrease_stock_batch(self, items: list[tuple[int, Decimal]]) -> None:
+        stmt = (
+            update(Ingredient)
+            .where(col(Ingredient.id).in_([iid for iid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Ingredient.id == iid, func.coalesce(Ingredient.stock, 0) - qty)
+                      for iid, qty in items],
+                    else_=Ingredient.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)
