@@ -11,6 +11,7 @@ from app.modules.product_ingredient.schemas import (
     ProductIngredientBatchCreate,
 )
 from app.modules.product_ingredient.unit_of_work import ProductIngredientUnitOfWork
+from app.modules.product.models import ProductType
 
 
 class ProductIngredientService:
@@ -31,15 +32,17 @@ class ProductIngredientService:
             )
         return relation
 
-    # Verifica que el producto exista y esté activo
-    def _assert_product_exists(
+    # Obtiene el producto activo o lanza 404
+    def _get_active_product_or_404(
         self, uow: ProductIngredientUnitOfWork, product_id: int
-    ) -> None:
-        if not uow.productRepo.exists_active_by_id(product_id):
+    ):
+        product = uow.productRepo.get_active_by_id(product_id)
+        if not product:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND,
                 f"Producto con id: {product_id} no encontrado",
             )
+        return product
 
     # Verifica que el ingrediente exista y esté activo
     def _assert_ingredient_exists(
@@ -51,13 +54,23 @@ class ProductIngredientService:
                 f"Ingrediente con id: {ingredient_id} no encontrado",
             )
 
+    def _assert_product_is_manufactured(
+        self, product
+    ) -> None:
+        if product.type == ProductType.FINAL:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No se pueden agregar ingredientes a un producto final",
+            )
+
     # -- Add ingredient to product --------------------------------------------------
 
     def add_ingredient(
         self, product_id: int, ingredient_id: int, data: ProductIngredientCreate
     ) -> ProductIngredientPublic:
         with ProductIngredientUnitOfWork(self._session) as uow:
-            self._assert_product_exists(uow, product_id)
+            product = self._get_active_product_or_404(uow, product_id)
+            self._assert_product_is_manufactured(product)
             self._assert_ingredient_exists(uow, ingredient_id)
 
             if uow.relationRepo.exists(product_id, ingredient_id):
@@ -70,6 +83,7 @@ class ProductIngredientService:
                 product_id=product_id,
                 ingredient_id=ingredient_id,
                 is_removable=data.is_removable,
+                quantity_ingredient=data.quantity_ingredient,
             )
 
             uow.relationRepo.add(relation)
@@ -79,8 +93,7 @@ class ProductIngredientService:
 
     def get_product_with_ingredients(self, product_id: int) -> ProductWithIngredients:
         with ProductIngredientUnitOfWork(self._session) as uow:
-            self._assert_product_exists(uow, product_id)
-            product = uow.productRepo.get_active_by_id(product_id)
+            product = self._get_active_product_or_404(uow, product_id)
             relations = uow.relationRepo.get_ingredients_by_product(product_id)
 
             if not relations:
@@ -93,6 +106,7 @@ class ProductIngredientService:
                     name=rel.ingredient.name,
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
+                    quantity_ingredient=rel.quantity_ingredient,
                 )
                 for rel in relations
                 if rel.ingredient
@@ -112,8 +126,13 @@ class ProductIngredientService:
     ) -> ProductIngredientPublic:
         with ProductIngredientUnitOfWork(self._session) as uow:
             relation = self._get_relation_or_404(uow, product_id, ingredient_id)
-            relation.is_removable = data.is_removable
+
+            update_data = data.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                setattr(relation, field, value)
+
             uow.relationRepo.add(relation)
+
             return ProductIngredientPublic.model_validate(relation)
 
     # -- Remove ingredient from product --------------------------------------------------
@@ -132,7 +151,8 @@ class ProductIngredientService:
         self, product_id: int, data: ProductIngredientBatchCreate
     ) -> ProductWithIngredients:
         with ProductIngredientUnitOfWork(self._session) as uow:
-            self._assert_product_exists(uow, product_id)
+            product = self._get_active_product_or_404(uow, product_id)
+            self._assert_product_is_manufactured(product)
 
             ingredient_ids = [i.ingredient_id for i in data.ingredients]
             found = uow.ingredientRepo.get_active_by_ids(ingredient_ids)
@@ -143,27 +163,27 @@ class ProductIngredientService:
                     404, f"Ingredientes no encontrados: {sorted(missing)}"
                 )
 
-            existing_ids = {
-                r.ingredient_id
-                for r in uow.relationRepo.get_ingredients_by_product(product_id)
-            }
+            all_relations = list(
+                uow.relationRepo.get_ingredients_by_product(product_id)
+            )
+            existing_ids = {r.ingredient_id for r in all_relations}
 
-            new_relations = []
-            for item in data.ingredients:
-                if item.ingredient_id not in existing_ids:
-                    new_relations.append(
-                        ProductIngredient(
-                            product_id=product_id,
-                            ingredient_id=item.ingredient_id,
-                            is_removable=item.is_removable,
-                        )
-                    )
+            new_relations = [
+                ProductIngredient(
+                    product_id=product_id,
+                    ingredient_id=item.ingredient_id,
+                    is_removable=item.is_removable,
+                    quantity_ingredient=item.quantity_ingredient,
+                )
+                for item in data.ingredients
+                if item.ingredient_id not in existing_ids
+            ]
+
             if new_relations:
-                uow._session.add_all(new_relations)
-                uow._session.flush()
-
-            product = uow.productRepo.get_active_by_id(product_id)
-            all_relations = uow.relationRepo.get_ingredients_by_product(product_id)
+                uow.relationRepo.add_batch(new_relations)
+                all_relations = list(
+                    uow.relationRepo.get_ingredients_by_product(product_id)
+                )
 
             ingredients = [
                 IngredientInProduct(
@@ -171,6 +191,7 @@ class ProductIngredientService:
                     name=rel.ingredient.name,
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
+                    quantity_ingredient=rel.quantity_ingredient,
                 )
                 for rel in all_relations
                 if rel.ingredient
