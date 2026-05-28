@@ -1,4 +1,4 @@
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, delete
 from typing import Sequence
 from sqlalchemy.orm import joinedload
 
@@ -54,6 +54,10 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
 
         return self.session.exec(statement).all()
 
+    def add_batch(self, relations: list[ProductIngredient]) -> None:
+        self.session.add_all(relations)
+        self.session.flush()
+
     # Retorna true si existe ya la asociación de un producto con un ingrediente
     def exists(self, product_id: int, ingredient_id: int) -> bool:
         return self.get_by_ids(product_id, ingredient_id) is not None
@@ -70,3 +74,10 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
             .distinct()
         )
         return set(self.session.exec(statement).all())
+
+    def remove_by_product(self, product_id: int) -> None:
+        stmt = delete(ProductIngredient).where(
+            ProductIngredient.product_id == product_id
+        )
+        self.session.exec(stmt)
+        self.session.flush()
