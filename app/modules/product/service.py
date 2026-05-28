@@ -14,11 +14,16 @@ from app.modules.product.schemas import (
     ProductFilters,
     UpdateStock,
     UpdateAbailability,
+    UpdateType,
 )
+from app.modules.product_ingredient.models import ProductIngredient
+from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
+
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
+from app.modules.product.models import ProductType
 
 if TYPE_CHECKING:
     from app.modules.category.models import Category
@@ -86,6 +91,7 @@ class ProductService:
                 description=rel.ingredient.description,
                 is_removable=rel.is_removable,
                 is_allergen=rel.ingredient.is_allergen,
+                quantity=rel.quantity_ingredient,
             )
             for rel in product.ingredients
             if rel.ingredient
@@ -122,11 +128,54 @@ class ProductService:
 
         return result
 
+    def _add_ingredients(
+        self,
+        uow: ProductUnitOfWork,
+        product: Product,
+        ingredients_data: list[ProductIngredientBatchItem],
+    ) -> None:
+
+        if product.type == ProductType.FINAL:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Un producto final no puede tener ingredientes",
+            )
+
+        if not ingredients_data:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Un producto manufacturado debe tener al menos 1 ingrediente",
+            )
+
+        found = uow.ingredients.get_active_by_ids(
+            [i.ingredient_id for i in ingredients_data]
+        )
+        found_ids = {i.id for i in found}
+        missing = set(i.ingredient_id for i in ingredients_data) - found_ids
+        if missing:
+            raise HTTPException(404, f"Ingredientes no encontrados: {sorted(missing)}")
+        relations = [
+            ProductIngredient(
+                product_id=product.id,  # type: ignore
+                ingredient_id=item.ingredient_id,
+                is_removable=item.is_removable,
+                quantity_ingredient=item.quantity_ingredient,
+            )
+            for item in ingredients_data
+        ]
+        uow.product_ingredient.add_batch(relations)
+
     def create(self, data: ProductCreate) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
             self._assert_name_unique(uow, data.name)
             primary_category = self._get_category_active_or_404(uow, data.category_id)
-            product = Product.model_validate(data)
+
+            # si es manufacturado forzamos none en stock
+            if data.type == ProductType.MANUFACTURED:
+                data.stock = None
+
+            product = Product.model_validate(data.model_dump(exclude={"ingredients"}))
+
             uow.products.add(product)
 
             categories = list(uow.categories.get_all_active_no_paged())
@@ -136,6 +185,8 @@ class ProductService:
             uow.product_category_link.create_chain(
                 product.id, chain_ids, data.category_id  # type: ignore
             )
+
+            self._add_ingredients(uow, product, data.ingredients)
 
             result = ProductPublic.model_validate(product)
         return result
@@ -194,7 +245,13 @@ class ProductService:
                         product_id, chain_ids, new_category.id  # type: ignore
                     )
 
-            patch = data.model_dump(exclude_unset=True, exclude={"category_id"})
+            exclude_fields = {"category_id"}
+
+            # no permitir cambiar stock a productos manufacturados
+            if data.stock is not None and product.type == ProductType.MANUFACTURED:
+                exclude_fields.add("stock")
+
+            patch = data.model_dump(exclude_unset=True, exclude=exclude_fields)
             for field, value in patch.items():
                 setattr(product, field, value)
 
@@ -250,6 +307,11 @@ class ProductService:
     def update_stock(self, product_id: int, data: UpdateStock) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
+            if product.type == ProductType.MANUFACTURED:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No se puede actualizar el stock de un producto manufacturado",
+                )
             product.stock = data.stock
 
             uow.products.add(product)
@@ -269,3 +331,19 @@ class ProductService:
                 uow.products.add(product)
 
             return ProductPublic.model_validate(product)
+
+    def update_type(self, product_id: int, data: UpdateType) -> ProductAdmin:
+        with ProductUnitOfWork(self._session) as uow:
+            product = self._get_or_404(uow, product_id)
+            if data.type != product.type:
+                if data.type == ProductType.MANUFACTURED:
+                    product.stock = None
+                else:
+                    product.stock = 0
+                    uow.product_ingredient.remove_by_product(product_id)
+
+                product.type = data.type
+                product.updated_at = datetime.now(timezone.utc)
+                uow.products.add(product)
+
+        return ProductAdmin.model_validate(product)
