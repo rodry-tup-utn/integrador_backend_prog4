@@ -15,6 +15,7 @@ class MeasurementUnit(StrEnum):
     MILILITER = "MILILITER"
     GRAM = "GRAMS"
     KILOGRAM = "KILOGRAMS"
+    UNIT = "UNIT"
 
 
 class Ingredient(SQLModel, table=True):
