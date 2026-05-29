@@ -29,7 +29,7 @@ CONFIRMED_STATE = "CONFIRMED"
 DELIVERED = "DELIVERED"
 
 TERMINAL_CLIENT = {CANCELLED_STATE, DELIVERED, IN_PREP}
-TERMINAL_STAFF = {CANCELLED_STATE, CONFIRMED_STATE}
+TERMINAL_STAFF = {CANCELLED_STATE, DELIVERED}
 
 
 class OrderService:
@@ -57,17 +57,16 @@ class OrderService:
                     f"disponible {product.stock}, solicitado {item.quantity}",
                 )
 
-    # crea diccionario con id de ingrediente y cantidad necesaria (multiplicando cantidad de producto por cantidad de cada ingrediente)
     def _compute_ingredient_needs(
-        self, uow: OrderUnitOfWork, items: list[tuple[int, int]]
+        self, uow: OrderUnitOfWork, items: list[tuple[int, int, list[int] | None]]
     ) -> dict[int, Decimal]:
-        product_ids = [product_id for product_id, _ in items]
+        product_ids = [product_id for product_id, _, _ in items]
         all_relations = uow.product_ingredients.get_by_products(product_ids)
 
         needs: dict[int, Decimal] = {}
-        for pid, qty in items:
+        for pid, qty, removed in items:
             for rel in all_relations:
-                if rel.product_id == pid:
+                if rel.product_id == pid and rel.ingredient_id not in (removed or []):
                     needs[rel.ingredient_id] = (
                         needs.get(rel.ingredient_id, Decimal("0"))
                         + rel.quantity_ingredient * qty
@@ -75,7 +74,7 @@ class OrderService:
         return needs
 
     def _validate_ingredient_stock(
-        self, uow: OrderUnitOfWork, items: list[tuple[int, int]]
+        self, uow: OrderUnitOfWork, items: list[tuple[int, int, list[int] | None]]
     ) -> None:
         needs = self._compute_ingredient_needs(uow, items)
         ingredients = {
@@ -112,7 +111,7 @@ class OrderService:
             self._check_stock_final(final_items, product_map)
         if manufactured_items:
             self._validate_ingredient_stock(
-                uow, [(i.product_id, i.quantity) for i in manufactured_items]
+                uow, [(i.product_id, i.quantity, i.personalization) for i in manufactured_items]
             )
 
         return final_items, manufactured_items
@@ -225,6 +224,16 @@ class OrderService:
         ]
         if increase_items:
             uow.products.increase_stock_batch(increase_items)
+
+    def _restore_ingredient_stock(
+        self, uow: OrderUnitOfWork, items: list
+    ) -> None:
+        needs = self._compute_ingredient_needs(
+            uow,
+            [(i.product_id, i.quantity, i.personalization) for i in items],
+        )
+        if needs:
+            uow.ingredients.increase_stock_batch(list(needs.items()))
 
     def _update_order(self, uow: OrderUnitOfWork, order: Order):
 
@@ -357,6 +366,8 @@ class OrderService:
 
             if old_state != PENDING_STATE:
                 self._restore_stock_for_simple_products(uow, list(items))
+                if old_state == CONFIRMED_STATE:
+                    self._restore_ingredient_stock(uow, list(items))
 
             order = self._update_order(uow, order)
 
@@ -373,12 +384,12 @@ class OrderService:
             old_state = self._check_state_order(uow, order.state_code)
             new_state = self._check_state_order(uow, new_state_code)
 
+            self._check_update_state(order.state_code, TERMINAL_STAFF)
+
             if new_state.order - old_state.order != 1:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST, "No puedes saltar mas de un estado"
                 )
-
-            new_state = self._check_state_order(uow, new_state_code)
 
             # decrementar stock si pasa a confirmado
             if new_state.code == CONFIRMED_STATE:
@@ -397,11 +408,9 @@ class OrderService:
                 if manufactured_items:
                     needs = self._compute_ingredient_needs(
                         uow,
-                        [(i.product_id, i.quantity) for i in manufactured_items],
+                        [(i.product_id, i.quantity, i.personalization) for i in manufactured_items],
                     )
                     uow.ingredients.decrease_stock_batch(list(needs.items()))
-
-            self._check_update_state(order.state_code, TERMINAL_STAFF)
 
             if order.state_code == new_state_code:
                 raise HTTPException(
@@ -418,10 +427,6 @@ class OrderService:
                 state_to_code=new_state.code,
                 reason=reason,
             )
-
-            if new_state_code == CANCELLED_STATE:
-                items = uow.order_items.get_by_order(order.id)  # type: ignore
-                self._restore_stock_for_simple_products(uow, list(items))
 
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
@@ -452,6 +457,8 @@ class OrderService:
 
             items = uow.order_items.get_by_order(order.id)  # type: ignore
             self._restore_stock_for_simple_products(uow, list(items))
+            if old_state == CONFIRMED_STATE:
+                self._restore_ingredient_stock(uow, list(items))
 
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
