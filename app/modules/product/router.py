@@ -18,6 +18,7 @@ from app.modules.product.schemas import (
 from app.core.database import get_session
 from typing import Annotated
 from app.modules.auth.dependencies import require_role
+from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
 
 
 def get_product_service(session: Session = Depends(get_session)) -> ProductService:
@@ -127,3 +128,12 @@ def list_all_admin(
     filters: ProductFilters = Depends(),
 ):
     return svc.list_all_admin(filters)
+
+
+@admin_router.patch("/{id}/ingredients")
+def add_ingredients(
+    id: int,
+    ingredients: list[ProductIngredientBatchItem],
+    svc: ProductService = Depends(get_product_service),
+):
+    return svc.add_ingredients(id, ingredients)
