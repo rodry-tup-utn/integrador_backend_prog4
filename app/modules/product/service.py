@@ -135,11 +135,9 @@ class ProductService:
         ingredients_data: list[ProductIngredientBatchItem],
     ) -> None:
 
-        if product.type == ProductType.FINAL:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Un producto final no puede tener ingredientes",
-            )
+        self._assert_manufactured_product(
+            product, "Un producto final no puede tener ingredientes"
+        )
 
         if not ingredients_data:
             raise HTTPException(
@@ -164,6 +162,43 @@ class ProductService:
             for item in ingredients_data
         ]
         uow.product_ingredient.add_batch(relations)
+
+    def _assert_manufactured_product(
+        self,
+        product: Product,
+        error_message: str = "El producto no es de tipo Manufacturado",
+    ):
+        if product.type == ProductType.FINAL:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                error_message,
+            )
+
+        # calcular stock por ingredientes o retornar product.stock en productos finales
+
+    def _get_product_stock(self, uow: ProductUnitOfWork, product_id: int) -> int:
+        product = self._get_active_or_404(uow, product_id)
+
+        if product.type == ProductType.MANUFACTURED:
+
+            ingredients_ids = [
+                ingredient.ingredient_id for ingredient in product.ingredients
+            ]
+
+            ingredients = uow.ingredients.get_active_by_ids(ingredients_ids)
+            ingredients_map = {i.id: i for i in ingredients}
+
+            posibles = []
+
+            for rel in product.ingredients:
+                ing = ingredients_map.get(rel.ingredient_id)
+                if ing is None or ing.stock is None:
+                    return 0
+                posibles.append(ing.stock // rel.quantity_ingredient)
+
+            return min(posibles) if posibles else 0
+
+        return product.stock  # type: ignore
 
     def create(self, data: ProductCreate) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
@@ -285,6 +320,10 @@ class ProductService:
             product, categories, primary, ingredients = self._get_details_or_404(
                 uow, product_id, active_only=True
             )
+
+            if product.type == ProductType.MANUFACTURED:
+                product.stock = self._get_product_stock(uow, product.id)  # type: ignore
+
             return ProductDetail(
                 **ProductPublic.model_validate(product).model_dump(),
                 primary_category=primary,
@@ -297,6 +336,10 @@ class ProductService:
             product, categories, primary, ingredients = self._get_details_or_404(
                 uow, product_id, active_only=False
             )
+
+            if product.type == ProductType.MANUFACTURED:
+                product.stock = self._get_product_stock(uow, product.id)  # type: ignore
+
             return ProductAdminDetail(
                 **ProductAdmin.model_validate(product).model_dump(),
                 primary_category=primary,
@@ -347,3 +390,13 @@ class ProductService:
                 uow.products.add(product)
 
         return ProductAdmin.model_validate(product)
+
+    def add_ingredients(
+        self, product_id: int, ingredients: list[ProductIngredientBatchItem]
+    ) -> ProductAdmin:
+        with ProductUnitOfWork(self._session) as uow:
+            product = self._get_active_or_404(uow, product_id)
+
+            self._add_ingredients(uow, product, ingredients)
+
+            return ProductAdmin.model_validate(product)
