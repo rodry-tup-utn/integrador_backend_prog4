@@ -11,7 +11,7 @@ class ProductCreate(SQLModel):
     name: str = Field(max_length=150, min_length=3)
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
-    stock: int | None = Field(ge=0)
+    stock: int | None = Field(ge=0, default=None)
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int = Field(ge=1)
     type: ProductType = Field(default=ProductType.FINAL)
