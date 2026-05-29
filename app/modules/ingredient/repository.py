@@ -117,3 +117,17 @@ class IngredientRepository(BaseRepository[Ingredient]):
             )
         )
         self.session.exec(stmt)
+
+    def increase_stock_batch(self, items: list[tuple[int, Decimal]]) -> None:
+        stmt = (
+            update(Ingredient)
+            .where(col(Ingredient.id).in_([iid for iid, _ in items]))
+            .values(
+                stock=case(
+                    *[(Ingredient.id == iid, func.coalesce(Ingredient.stock, 0) + qty)
+                      for iid, qty in items],
+                    else_=Ingredient.stock,
+                )
+            )
+        )
+        self.session.exec(stmt)
