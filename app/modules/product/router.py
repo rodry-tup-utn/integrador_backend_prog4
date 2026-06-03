@@ -33,7 +33,7 @@ admin_router = APIRouter(
 )
 
 stock_router = APIRouter(
-    prefix="/stock",
+    prefix="/stock/product",
     tags=["Stock - Products"],
     dependencies=[Depends(require_role(["STOCK", "ADMIN"]))],
 )
@@ -65,6 +65,23 @@ def set_availablility(
     return svc.set_availability(id, data)
 
 
+@stock_router.patch("/{id}", response_model=ProductPublic)
+def update(
+    id: Annotated[int, Path(ge=1)],
+    data: ProductUpdate,
+    svc: ProductService = Depends(get_product_service),
+):
+
+    return svc.update(id, data)
+
+
+@stock_router.get("/{id}", response_model=ProductAdminDetail)
+def get_by_id_with_details(
+    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
+):
+    return svc.get_by_id_with_details(id)
+
+
 @router.get("/", response_model=ProductList)
 def list_all_actives(
     filters: ProductFilters = Depends(),  # para que fastapi los tome como query params y no body
@@ -89,13 +106,6 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.get("/{id}", response_model=ProductAdminDetail)
-def get_by_id_with_details(
-    id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
-):
-    return svc.get_by_id_with_details(id)
-
-
 @admin_router.post("/", response_model=ProductPublic, status_code=201)
 def create(
     data: ProductCreate,
@@ -109,16 +119,6 @@ def restore(
     id: Annotated[int, Path(ge=1)], svc: ProductService = Depends(get_product_service)
 ):
     return svc.restore(id)
-
-
-@admin_router.patch("/{id}", response_model=ProductPublic)
-def update(
-    id: Annotated[int, Path(ge=1)],
-    data: ProductUpdate,
-    svc: ProductService = Depends(get_product_service),
-):
-
-    return svc.update(id, data)
 
 
 @admin_router.patch("/{id}/type", response_model=ProductAdmin)
