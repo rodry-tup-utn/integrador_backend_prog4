@@ -192,7 +192,7 @@ class ProductService:
 
             for rel in product.ingredients:
                 ing = ingredients_map.get(rel.ingredient_id)
-                if ing is None or ing.stock is None:
+                if ing is None or ing.stock is None or rel.quantity_ingredient == 0:
                     return 0
                 posibles.append(ing.stock // rel.quantity_ingredient)
 
