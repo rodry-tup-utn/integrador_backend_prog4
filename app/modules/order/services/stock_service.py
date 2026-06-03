@@ -9,7 +9,7 @@ class StockService:
         self, uow: OrderUnitOfWork, product_ids: list[int]
     ) -> dict[int, Product]:
         products = uow.products.get_by_ids(product_ids)
-        return {p.id: p for p in products}
+        return {p.id: p for p in products}  # type: ignore
 
     def check_stock_final(self, items: list, product_map: dict[int, Product]) -> None:
         for item in items:
@@ -81,7 +81,10 @@ class StockService:
         if manufactured_items:
             self.validate_ingredient_stock(
                 uow,
-                [(i.product_id, i.quantity, i.personalization) for i in manufactured_items],
+                [
+                    (i.product_id, i.quantity, i.personalization)
+                    for i in manufactured_items
+                ],
             )
 
         return final_items, manufactured_items
