@@ -39,6 +39,14 @@ stock_router = APIRouter(
 )
 
 
+@stock_router.get("/", response_model=ProductListAdmin)
+def list_all_admin(
+    svc: ProductService = Depends(get_product_service),
+    filters: ProductFilters = Depends(),
+):
+    return svc.list_all_admin(filters)
+
+
 @stock_router.patch("/{id}/update")
 def update_stock(
     id: Annotated[int, Path(ge=1)],
@@ -120,14 +128,6 @@ def update_type(
     svc: ProductService = Depends(get_product_service),
 ):
     svc.update_type(id, data)
-
-
-@admin_router.get("/", response_model=ProductListAdmin)
-def list_all_admin(
-    svc: ProductService = Depends(get_product_service),
-    filters: ProductFilters = Depends(),
-):
-    return svc.list_all_admin(filters)
 
 
 @admin_router.patch("/{id}/ingredients")
