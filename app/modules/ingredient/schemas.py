@@ -18,11 +18,11 @@ class IngredientPublic(SQLModel):
     name: str
     description: str | None
     is_allergen: bool
-    stock: Decimal
-    measurement_unit: MeasurementUnit
 
 
 class IngredientPrivate(IngredientPublic):
+    stock: Decimal
+    measurement_unit: MeasurementUnit
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
