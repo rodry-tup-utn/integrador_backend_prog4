@@ -3,15 +3,19 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal, Annotated
 from pydantic import Field as PydanticField
+from app.modules.product.models import ProductType
+from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
 
 
 class ProductCreate(SQLModel):
     name: str = Field(max_length=150, min_length=3)
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
-    stock: int | None = Field(ge=0, default=0)
+    stock: int | None = Field(ge=0, default=None)
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int = Field(ge=1)
+    type: ProductType = Field(default=ProductType.FINAL)
+    ingredients: list[ProductIngredientBatchItem] = Field(default_factory=list)
 
 
 class CategoryBase(SQLModel):
@@ -26,16 +30,18 @@ class IngredientBase(SQLModel):
     description: str | None
     is_removable: bool
     is_allergen: bool
+    quantity: Decimal
 
 
 class ProductPublic(SQLModel):
     id: int
     base_price: Decimal
-    stock: int
+    stock: int | None
     name: str
     description: str | None
     images_url: str | None
     available: bool
+    type: ProductType
 
 
 class ProductAdmin(ProductPublic):
@@ -75,12 +81,17 @@ class ProductUpdate(SQLModel):
     stock: int | None = Field(ge=0, default=None)
 
 
+class UpdateType(SQLModel):
+    type: ProductType
+
+
 class ProductFilters(SQLModel):
     search: Annotated[str | None, PydanticField(max_length=20, min_length=3)] = None
     category_id: Annotated[int | None, PydanticField(ge=1)] = None
     max_price: Annotated[Decimal | None, PydanticField(ge=0)] = None
     min_price: Annotated[Decimal | None, PydanticField(ge=0)] = None
     available: bool | None = None
+    type: ProductType | None = None
 
     offset: Annotated[int, PydanticField(ge=0)] = 0
     limit: Annotated[int, PydanticField(ge=1)] = 20

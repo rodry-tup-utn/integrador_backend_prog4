@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import TYPE_CHECKING
+from decimal import Decimal
 
 if TYPE_CHECKING:
     from app.modules.product.models import Product
@@ -14,6 +15,7 @@ class ProductIngredient(SQLModel, table=True):
     product_id: int = Field(foreign_key="product.id", primary_key=True)
     ingredient_id: int = Field(foreign_key="ingredient.id", primary_key=True)
     is_removable: bool = Field(default=False)
+    quantity_ingredient: Decimal = Field(ge=0)
 
     product: "Product" = Relationship(back_populates="ingredients")
     ingredient: "Ingredient" = Relationship(back_populates="products")

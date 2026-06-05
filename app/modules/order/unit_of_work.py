@@ -11,6 +11,7 @@ from app.modules.order.repositories.payload_method_repository import (
 from app.modules.order_item.repository import OrderItemRepository
 from app.modules.product.repository import ProductRepository
 from app.modules.product_ingredient.repository import ProductIngredientRepository
+from app.modules.ingredient.repository import IngredientRepository
 from app.modules.user.repositories.address_repository import AddressRepository
 
 
@@ -24,4 +25,5 @@ class OrderUnitOfWork(UnitOfWork["OrderUnitOfWork"]):
         self.payment_methods = PaymentMethodRepository(session)
         self.products = ProductRepository(session)
         self.product_ingredients = ProductIngredientRepository(session)
+        self.ingredients = IngredientRepository(session)
         self.addresses = AddressRepository(session)

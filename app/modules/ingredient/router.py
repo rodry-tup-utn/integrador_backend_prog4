@@ -12,6 +12,7 @@ from app.modules.ingredient.schemas import (
     IngredientUpdate,
     IngredientPrivate,
     IngredientListFull,
+    UpdateStockIngredient,
 )
 from app.modules.auth.dependencies import require_role
 
@@ -100,3 +101,12 @@ def delete(
     svc: IngredientService = Depends(get_ingredient_service),
 ):
     return svc.delete_ingredient(id)
+
+
+@admin_router.patch("/{id}/stock")
+def update_stock(
+    id: Annotated[int, Path(ge=1)],
+    data: UpdateStockIngredient,
+    svc: IngredientService = Depends(get_ingredient_service),
+):
+    return svc.update_stock(id, data)

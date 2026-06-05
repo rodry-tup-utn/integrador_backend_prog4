@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.modules.product.schemas import ProductFilters
 from app.modules.product_category.models import ProductCategoryLink
 from app.modules.product_ingredient.models import ProductIngredient
+from app.modules.product.models import ProductType
 
 SORT_FIELDS = {"name": Product.name, "base_price": Product.base_price}
 
@@ -32,6 +33,9 @@ class ProductRepository(BaseRepository[Product]):
 
         if filters.available:
             statement = statement.where(Product.available == True)
+
+        if filters.type:
+            statement = statement.where(Product.type == filters.type)
 
         if filters.category_id is not None:
             statement = statement.where(
@@ -68,6 +72,9 @@ class ProductRepository(BaseRepository[Product]):
 
         if filters.available:
             statement = statement.where(Product.available == True)
+
+        if filters.type:
+            statement = statement.where(Product.type == filters.type)
 
         if filters.category_id is not None:
             statement = statement.where(
@@ -150,9 +157,10 @@ class ProductRepository(BaseRepository[Product]):
         stmt = (
             update(Product)
             .where(col(Product.id).in_([pid for pid, _ in items]))
+            .where(Product.type == ProductType.FINAL)
             .values(
                 stock=case(
-                    *[(Product.id == pid, Product.stock - qty) for pid, qty in items],
+                    *[(Product.id == pid, func.coalesce(Product.stock, 0) - qty) for pid, qty in items],  # type: ignore
                     else_=Product.stock,
                 )
             )
@@ -164,11 +172,19 @@ class ProductRepository(BaseRepository[Product]):
         stmt = (
             update(Product)
             .where(col(Product.id).in_([pid for pid, _ in items]))
+            .where(Product.type == ProductType.FINAL)
             .values(
                 stock=case(
-                    *[(Product.id == pid, Product.stock + qty) for pid, qty in items],
+                    *[(Product.id == pid, func.coalesce(Product.stock, 0) + qty) for pid, qty in items],  # type: ignore
                     else_=Product.stock,
                 )
             )
         )
         self.session.exec(stmt)
+
+    def get_final_product_ids(self, ids: list[int]) -> set[int]:
+        stmt = select(Product.id).where(
+            col(Product.id).in_(ids),
+            Product.type == ProductType.FINAL,
+        )
+        return set(self.session.exec(stmt).all())

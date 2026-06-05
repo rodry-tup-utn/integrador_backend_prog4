@@ -4,6 +4,13 @@ from typing import TYPE_CHECKING
 from decimal import Decimal
 from sqlalchemy import Column, DateTime
 from app.modules.order_item.models import OrderItem
+from enum import StrEnum
+
+
+class ProductType(StrEnum):
+    FINAL = "FINAL"
+    MANUFACTURED = "MANUFACTURED"
+
 
 if TYPE_CHECKING:
     from app.modules.product_category.models import ProductCategoryLink
@@ -17,9 +24,10 @@ class Product(SQLModel, table=True):
     name: str = Field(min_length=3, max_length=150, unique=True)
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
-    stock: int = Field(ge=0, default=0)
+    stock: int | None = Field(ge=0, default=None)
     images_url: str | None = Field(default=None)
     available: bool = Field(default=True)
+    type: ProductType
 
     category_links: list["ProductCategoryLink"] = Relationship(back_populates="product")
     ingredients: list["ProductIngredient"] = Relationship(back_populates="product")
