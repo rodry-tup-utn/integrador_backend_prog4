@@ -23,6 +23,29 @@ from app.modules.user.models import Address
 from datetime import datetime, timezone
 from app.modules.order.services.stock_service import StockService
 from app.modules.order.services.state_service import OrderStateService
+import logging
+from app.modules.websocket.manager import manager
+
+logger = logging.getLogger("app.modules.orders.services.order_service")
+
+STATES = {
+    OrderStateService.PENDING,
+    OrderStateService.CONFIRMED,
+    OrderStateService.IN_PREP,
+    OrderStateService.DELIVERED,
+    OrderStateService.CANCELLED,
+}
+
+ROLES_BY_TRANSITION = {
+    "PENDING": ["ORDERS", "ADMIN"],
+    "CONFIRMED": ["ORDERS", "ADMIN"],
+    "IN_PREP": ["ORDERS", "ADMIN"],
+    "DELIVERED": ["ORDERS", "ADMIN"],
+    "CANCELLED": ["ORDERS", "ADMIN"],
+}
+
+WS_EVENT_ORDER_CREATED = "order_created"
+WS_EVENT_ORDER_UPDATED = "order_updated"
 
 
 class OrderService:
@@ -101,11 +124,31 @@ class OrderService:
         order = uow.orders.get_by_id(order_id)
         if not order:
             raise HTTPException(
-                status.HTTP_404_NOT_FOUND, f"Orden id {id} no encontrada"
+                status.HTTP_404_NOT_FOUND, f"Orden id {order_id} no encontrada"
             )
         return order
 
-    def create(self, data: OrderCreate, user_id: int) -> OrderDetailPublic:
+    async def _emit_ws_events(
+        self, order_id: int, new_state: str, event: str
+    ) -> None:
+
+        if new_state not in STATES:
+            return
+
+        data = {"order_id": order_id, "state": new_state}
+
+        await manager.broadcast_to_order(order_id, event, data)
+
+        roles_a_notificar = ROLES_BY_TRANSITION.get(new_state, [])
+        if roles_a_notificar:
+            await manager.broadcast_to_roles(roles_a_notificar, event, data)
+
+        logger.info(
+            f"WS emitido: {event} | pedido={order_id} | "
+            f"roles={roles_a_notificar} | rooms_activas={manager.get_rooms_info()}"
+        )
+
+    async def create(self, data: OrderCreate, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             product_ids = [item.product_id for item in data.items]
             product_map = self.stock.get_product_map(uow, product_ids)
@@ -142,7 +185,10 @@ class OrderService:
             )
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
-            return self._order_to_detail(order_detail)  # type: ignore
+            result = self._order_to_detail(order_detail)  # type: ignore
+            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_CREATED)  # type: ignore
+
+            return result
 
     def get_by_id(self, order_id: int, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -178,7 +224,7 @@ class OrderService:
             data = [OrderPublic.model_validate(o) for o in orders]
             return OrderList(data=data, total=total)
 
-    def cancel(
+    async def cancel(
         self, order_id: int, user_id: int, reason: str = "Cancelado por el usuario"
     ) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -217,9 +263,13 @@ class OrderService:
 
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
-            return self._order_to_detail(order_detail)  # type: ignore
 
-    def change_state(
+            result = self._order_to_detail(order_detail)  # type: ignore
+            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+
+            return result
+
+    async def change_state(
         self, order_id: int, new_state_code: str, reason: str | None = None
     ) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -277,9 +327,14 @@ class OrderService:
 
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
-            return self._order_to_detail(order_detail)  # type: ignore
 
-    def cancel_by_staff(self, order_id: int, reason: str) -> OrderDetailPublic:
+            result = self._order_to_detail(order_detail)  # type: ignore
+
+            await self._emit_ws_events(order.id, new_state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+
+            return result
+
+    async def cancel_by_staff(self, order_id: int, reason: str) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             order = self._get_or_404(uow, order_id)
 
@@ -309,7 +364,11 @@ class OrderService:
 
             order = self._update_order(uow, order)
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
-            return self._order_to_detail(order_detail)  # type: ignore
+
+            result = self._order_to_detail(order_detail)  # type: ignore
+            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+
+            return result
 
     def soft_delete(self, order_id: int):
         with OrderUnitOfWork(self._session) as uow:
