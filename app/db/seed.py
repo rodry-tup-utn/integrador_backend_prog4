@@ -267,21 +267,15 @@ ORDER_STATES = [
         "is_terminal": False,
     },
     {
-        "code": "ON_THE_WAY",
-        "description": "Tu pedido está en camino...",
-        "order": 4,
-        "is_terminal": False,
-    },
-    {
         "code": "DELIVERED",
         "description": "Hemos entregado tu pedido!",
-        "order": 5,
+        "order": 4,
         "is_terminal": True,
     },
     {
         "code": "CANCELLED",
         "description": "Pedido cancelado",
-        "order": 6,
+        "order": 5,
         "is_terminal": True,
     },
 ]
