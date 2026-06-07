@@ -17,6 +17,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.order.router import user_router as user_order_router
 from app.modules.order.router import admin_router as admin_order_router
 from app.modules.order.router import orders_router
+from app.modules.websocket.router import router as ws_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -48,6 +49,7 @@ app.include_router(user_router)
 app.include_router(user_order_router)
 app.include_router(admin_order_router)
 app.include_router(orders_router)
+app.include_router(ws_router)
 
 origins = [
     "http://localhost:5173",
