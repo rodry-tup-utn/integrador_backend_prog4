@@ -43,12 +43,12 @@ orders_router = APIRouter(
 @user_router.post(
     "/", response_model=OrderDetailPublic, status_code=status.HTTP_201_CREATED
 )
-def create_order(
+async def create_order(
     data: OrderCreate,
     user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
     svc: Annotated[OrderService, Depends(get_order_service)],
 ):
-    return svc.create(data, user_data.id)
+    return await svc.create(data, user_data.id)
 
 
 @user_router.get("/", response_model=OrderList)
@@ -70,12 +70,12 @@ def get_my_order(
 
 
 @user_router.post("/{id}/cancel", response_model=OrderDetailPublic)
-def cancel_my_order(
+async def cancel_my_order(
     id: Annotated[int, Path(ge=1)],
     user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
     svc: Annotated[OrderService, Depends(get_order_service)],
 ):
-    return svc.cancel(id, user_data.id)
+    return await svc.cancel(id, user_data.id)
 
 
 @admin_router.delete("/{id}/delete", status_code=status.HTTP_204_NO_CONTENT)
@@ -103,18 +103,18 @@ def get_order_by_staff(
 
 
 @orders_router.patch("/{id}/state", response_model=OrderDetailPublic)
-def change_order_state(
+async def change_order_state(
     id: Annotated[int, Path(ge=1)],
     data: OrderStateChange,
     svc: Annotated[OrderService, Depends(get_order_service)],
 ):
-    return svc.change_state(id, data.state_code, data.reason)
+    return await svc.change_state(id, data.state_code, data.reason)
 
 
 @orders_router.post("/{id}/cancel", response_model=OrderDetailPublic)
-def cancel_order_by_staff(
+async def cancel_order_by_staff(
     id: Annotated[int, Path(ge=1)],
     data: OrderCancelByStaff,
     svc: Annotated[OrderService, Depends(get_order_service)],
 ):
-    return svc.cancel_by_staff(id, data.reason)
+    return await svc.cancel_by_staff(id, data.reason)
