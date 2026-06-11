@@ -357,3 +357,14 @@ class UserService:
             uow.users.add(user)
 
         return {"message": "Contraseña cambiada exitosamente"}
+
+    def update_admin_password(self, user_id):
+        with UserUnitOfWork(self._session) as uow:
+            user = self._get_active_or_404(uow, user_id)
+            new_hash_pass = get_password_hash("12345")
+
+            user.hashed_pass = new_hash_pass
+
+            uow.users.add(user)
+
+            return {"message": "Contraseña restablecida"}
