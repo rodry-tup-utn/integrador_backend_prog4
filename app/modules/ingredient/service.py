@@ -120,6 +120,13 @@ class IngredientService:
     def delete_ingredient(self, ingredient_id: int) -> None:
         with IngredientUnitOfWork(self._session) as uow:
             ingredient = self._get_active_or_404(uow, ingredient_id)
+
+            if uow.product_ingredient.ingredient_has_products(ingredient_id):
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"No se puede eliminar el ingrediente '{ingredient.name}' porque está vinculado a uno o más productos",
+                )
+
             uow.ingredientRepo.soft_delete_ingredient(ingredient)
 
     # -- Restore --------------------------------------------------
