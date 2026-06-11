@@ -237,3 +237,10 @@ def update_by_admin(
     svc: UserService = Depends(get_user_service),
 ):
     return svc.update_profile(user_id, data)
+
+
+@admin_router.patch("/{id}/password")
+def update_pass_admin(
+    id: Annotated[int, Path(ge=1)], svc: UserService = Depends(get_user_service)
+):
+    return svc.update_admin_password(id)
