@@ -62,6 +62,14 @@ class ProductIngredientRepository(BaseRepository[ProductIngredient]):
     def exists(self, product_id: int, ingredient_id: int) -> bool:
         return self.get_by_ids(product_id, ingredient_id) is not None
 
+    def ingredient_has_products(self, ingredient_id: int) -> bool:
+        statement = (
+            select(ProductIngredient.product_id)
+            .where(ProductIngredient.ingredient_id == ingredient_id)
+            .limit(1)
+        )
+        return self.session.exec(statement).first() is not None
+
     # Método de borrado físico para eliminar la relación entre producto e ingrediente
     def remove(self, relation: ProductIngredient) -> None:
         self.session.delete(relation)

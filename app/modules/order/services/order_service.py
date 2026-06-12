@@ -128,9 +128,7 @@ class OrderService:
             )
         return order
 
-    async def _emit_ws_events(
-        self, order_id: int, new_state: str, event: str
-    ) -> None:
+    async def _emit_ws_events(self, order_id: int, new_state: str, event: str) -> None:
 
         if new_state not in STATES:
             return
@@ -186,9 +184,9 @@ class OrderService:
 
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             result = self._order_to_detail(order_detail)  # type: ignore
-            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_CREATED)  # type: ignore
 
-            return result
+        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_CREATED)  # type: ignore
+        return result
 
     def get_by_id(self, order_id: int, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -265,9 +263,9 @@ class OrderService:
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
 
             result = self._order_to_detail(order_detail)  # type: ignore
-            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
 
-            return result
+        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+        return result
 
     async def change_state(
         self, order_id: int, new_state_code: str, reason: str | None = None
@@ -330,9 +328,8 @@ class OrderService:
 
             result = self._order_to_detail(order_detail)  # type: ignore
 
-            await self._emit_ws_events(order.id, new_state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
-
-            return result
+        await self._emit_ws_events(order.id, new_state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+        return result
 
     async def cancel_by_staff(self, order_id: int, reason: str) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
@@ -366,9 +363,9 @@ class OrderService:
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
 
             result = self._order_to_detail(order_detail)  # type: ignore
-            await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
 
-            return result
+        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+        return result
 
     def soft_delete(self, order_id: int):
         with OrderUnitOfWork(self._session) as uow:
