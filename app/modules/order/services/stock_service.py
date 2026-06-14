@@ -1,7 +1,7 @@
-from fastapi import HTTPException, status
 from decimal import Decimal
 from app.modules.order.unit_of_work import OrderUnitOfWork
 from app.modules.product.models import Product, ProductType
+from app.core.exceptions import ResourceNotFoundError, BusinessRuleError
 
 
 class StockService:
@@ -15,13 +15,9 @@ class StockService:
         for item in items:
             product = product_map.get(item.product_id)
             if not product:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND,
-                    f"Producto con id {item.product_id} no encontrado",
-                )
+                raise ResourceNotFoundError(resource="Producto", identifier=item.product_id)
             if product.stock is not None and product.stock < item.quantity:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     f"Stock insuficiente para '{product.name}': "
                     f"disponible {product.stock}, solicitado {item.quantity}",
                 )
@@ -54,8 +50,7 @@ class StockService:
             ing = ingredients.get(ing_id)
             if not ing or (ing.stock is not None and ing.stock < required):
                 name = ing.name if ing else str(ing_id)
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     f"Stock insuficiente del ingrediente '{name}': "
                     f"necesario {required}",
                 )
@@ -67,10 +62,7 @@ class StockService:
         for item in items:
             product = product_map.get(item.product_id)
             if not product:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND,
-                    f"Producto con id {item.product_id} no encontrado",
-                )
+                raise ResourceNotFoundError(resource="Producto", identifier=item.product_id)
             if product.type == ProductType.MANUFACTURED:
                 manufactured_items.append(item)
             else:
@@ -104,8 +96,7 @@ class StockService:
             }
             for ing_id in item.personalization:
                 if ing_id not in removable_ids:
-                    raise HTTPException(
-                        status.HTTP_400_BAD_REQUEST,
+                    raise BusinessRuleError(
                         f"El ingrediente {ing_id} no es removible "
                         f"para el producto {item.product_id}",
                     )

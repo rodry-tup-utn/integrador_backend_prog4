@@ -1,4 +1,3 @@
-from fastapi import HTTPException, status
 from sqlmodel import Session
 
 from app.modules.product_ingredient.models import ProductIngredient
@@ -12,6 +11,11 @@ from app.modules.product_ingredient.schemas import (
 )
 from app.modules.product_ingredient.unit_of_work import ProductIngredientUnitOfWork
 from app.modules.product.models import ProductType
+from app.core.exceptions import (
+    ResourceNotFoundError,
+    BusinessRuleError,
+    DuplicateResourceError,
+)
 
 
 class ProductIngredientService:
@@ -26,40 +30,31 @@ class ProductIngredientService:
     ) -> ProductIngredient:
         relation = uow.relationRepo.get_by_ids(product_id, ingredient_id)
         if not relation:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"El ingrediente con id: {ingredient_id} no está asociado con el producto con id: {product_id}",
+            raise ResourceNotFoundError(
+                resource="Relación producto-ingrediente",
+                identifier=f"{product_id}-{ingredient_id}",
             )
         return relation
 
-    # Obtiene el producto activo o lanza 404
     def _get_active_product_or_404(
         self, uow: ProductIngredientUnitOfWork, product_id: int
     ):
         product = uow.productRepo.get_active_by_id(product_id)
         if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Producto con id: {product_id} no encontrado",
-            )
+            raise ResourceNotFoundError(resource="Producto", identifier=product_id)
         return product
 
-    # Verifica que el ingrediente exista y esté activo
     def _assert_ingredient_exists(
         self, uow: ProductIngredientUnitOfWork, ingredient_id: int
     ) -> None:
         if not uow.ingredientRepo.get_active_ingredient_by_id(ingredient_id):
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Ingrediente con id: {ingredient_id} no encontrado",
+            raise ResourceNotFoundError(
+                resource="Ingrediente", identifier=ingredient_id
             )
 
-    def _assert_product_is_manufactured(
-        self, product
-    ) -> None:
+    def _assert_product_is_manufactured(self, product) -> None:
         if product.type == ProductType.FINAL:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
+            raise BusinessRuleError(
                 "No se pueden agregar ingredientes a un producto final",
             )
 
@@ -73,10 +68,16 @@ class ProductIngredientService:
             self._assert_product_is_manufactured(product)
             self._assert_ingredient_exists(uow, ingredient_id)
 
+            if data.quantity_ingredient <= 0:
+                raise BusinessRuleError(
+                    "Un ingrediente no puede tener cantidad 0 o menor"
+                )
+
             if uow.relationRepo.exists(product_id, ingredient_id):
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"El ingrediente con id: {ingredient_id} ya está asociado al producto con id: {product_id}",
+                raise DuplicateResourceError(
+                    resource="Relación producto-ingrediente",
+                    field="ingredient_id",
+                    value=ingredient_id,
                 )
 
             relation = ProductIngredient(
@@ -128,6 +129,11 @@ class ProductIngredientService:
         with ProductIngredientUnitOfWork(self._session) as uow:
             relation = self._get_relation_or_404(uow, product_id, ingredient_id)
 
+            if data.quantity_ingredient is not None and data.quantity_ingredient <= 0:
+                raise BusinessRuleError(
+                    "Un ingrediente no puede tener cantidad 0 o menor"
+                )
+
             update_data = data.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(relation, field, value)
@@ -142,8 +148,7 @@ class ProductIngredientService:
         with ProductIngredientUnitOfWork(self._session) as uow:
             relation = self._get_relation_or_404(uow, product_id, ingredient_id)
             if not relation.is_removable:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
+                raise BusinessRuleError(
                     "No puede eliminarse un ingrediente marcado como 'no removible'",
                 )
             uow.relationRepo.remove(relation)
@@ -160,8 +165,8 @@ class ProductIngredientService:
             found_ids = {i.id for i in found}
             missing = set(ingredient_ids) - found_ids
             if missing:
-                raise HTTPException(
-                    404, f"Ingredientes no encontrados: {sorted(missing)}"
+                raise ResourceNotFoundError(
+                    message=f"Ingredientes no encontrados: {missing}"
                 )
 
             all_relations = list(

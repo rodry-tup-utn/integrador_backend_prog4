@@ -9,8 +9,10 @@ from app.modules.ingredient.models import Ingredient
 from datetime import datetime, timezone
 from app.modules.category.models import Category
 from app.modules.order.models import StateOrder, PaymentMethod
+from app.core.logger import get_logger
 
 datetime_now = datetime.now(timezone.utc)
+logger = get_logger("app.db.seed")
 
 ROLES = [
     {
@@ -62,7 +64,7 @@ USERS = [
     },
 ]
 
-ADRESSES = [
+ADDRESSES = [
     {
         "user_id": "4",
         "alias": "Casa",
@@ -299,30 +301,26 @@ def run() -> None:
     create_db_and_tables()
 
     with Session(engine) as session:
-        for data_adress in ROLES:
+        for data_role in ROLES:
             existing = session.exec(
-                select(Role).where(Role.code == data_adress["code"])
+                select(Role).where(Role.code == data_role["code"])
             ).first()
 
-            if existing:
-                print(f"  [=] Ya existe: {data_adress['code']}")
-            else:
+            if not existing:
                 role = Role(
-                    code=data_adress["code"],
-                    name=data_adress["name"],
-                    description=data_adress["description"],
+                    code=data_role["code"],
+                    name=data_role["name"],
+                    description=data_role["description"],
                 )
                 session.add(role)
-                print(f"  [+] Creado:    {data_adress['name']})")
+                logger.info("Seed: rol %s creado", data_role["code"])
 
         for user in USERS:
             existing = session.exec(
                 select(User).where(User.email == user["email"])
             ).first()
 
-            if existing:
-                print(f"  [=] Ya existe: {user['email']}")
-            else:
+            if not existing:
                 user = User(
                     name=user["name"],
                     lastname=user["lastname"],
@@ -331,145 +329,135 @@ def run() -> None:
                     created_at=datetime_now,
                 )
                 session.add(user)
+                logger.info("Seed: usuario %s creado", user.email)
 
-        for data_adress in ADRESSES:
+        for data_address in ADDRESSES:
             existing = session.exec(
-                select(Address).where(Address.line_one == data_adress["line_one"])
+                select(Address).where(Address.line_one == data_address["line_one"])
             ).first()
-            if existing:
-                print(f"Ya existe la direccion id {data_adress["line_one"]}")
-            else:
-                adress = Address(
-                    user_id=data_adress["user_id"],
-                    alias=data_adress["alias"],
-                    line_one=data_adress["line_one"],
-                    city=data_adress["city"],
-                    province=data_adress["province"],
-                    zip_code=data_adress["zip_code"],
-                    latitude=data_adress["latitude"],
-                    is_main=data_adress["is_main"],
-                    longitude=data_adress["longitude"],
+            if not existing:
+                address = Address(
+                    user_id=data_address["user_id"],
+                    alias=data_address["alias"],
+                    line_one=data_address["line_one"],
+                    city=data_address["city"],
+                    province=data_address["province"],
+                    zip_code=data_address["zip_code"],
+                    latitude=data_address["latitude"],
+                    is_main=data_address["is_main"],
+                    longitude=data_address["longitude"],
                 )
-                session.add(adress)
-                print("Direccion agregada")
-            session.commit()
+                session.add(address)
+                logger.info(
+                    "Seed: direccion creada para user %s", data_address["user_id"]
+                )
 
         # refrescar usuarios/roles desde DB
         users = session.exec(select(User)).all()
         roles = session.exec(select(Role)).all()
 
-    role_map = {r.code: r for r in roles}
-    user_map = {u.email: u for u in users}
+        role_map = {r.code: r for r in roles}
+        user_map = {u.email: u for u in users}
 
-    # --------------------
-    # RELACIONES USER - ROLE
-    # --------------------
+        # --------------------
+        # RELACIONES USER - ROLE
+        # --------------------
 
-    relations = [
-        ("admin@admin.com", "ADMIN"),
-        ("stock@stock.com", "STOCK"),
-        ("pedidos@pedidos.com", "ORDERS"),
-        ("cliente@cliente.com", "CLIENT"),
-    ]
+        relations = [
+            ("admin@admin.com", "ADMIN"),
+            ("stock@stock.com", "STOCK"),
+            ("pedidos@pedidos.com", "ORDERS"),
+            ("cliente@cliente.com", "CLIENT"),
+        ]
 
-    for email, role_code in relations:
+        for email, role_code in relations:
 
-        user = user_map[email]
-        role = role_map[role_code]
+            user = user_map[email]
+            role = role_map[role_code]
 
-        existing_link = session.exec(
-            select(UserRoleLink).where(
-                UserRoleLink.user_id == user.id,
-                UserRoleLink.role_code == role.code,
-                UserRoleLink.expires_at == None,
-            )
-        ).first()
-
-        if not existing_link:
-            link = UserRoleLink(
-                user_id=user.id,
-                role_code=role.code,
-                assigned_by_id=user.id,
-                created_at=datetime.now(timezone.utc),
-            )
-
-            session.add(link)
-            print(f"  [+] Relación {email} -> {role_code}")
-
-        else:
-            print(f"  [=] Ya existe relación {email} -> {role_code}")
-
-        session.commit()
-
-    category_map = {}
-    for data_category in CATEGORIES:
-
-        existing = session.exec(
-            select(Category).where(Category.name == data_category["name"])
-        ).first()
-
-        if existing:
-            print(f"  [=] Ya existe categoria: {data_category['name']}")
-            category_map[data_category["name"]] = existing
-            continue
-
-        parent = None
-
-        if data_category["parent_name"]:
-            parent = session.exec(
-                select(Category).where(Category.name == data_category["parent_name"])
+            existing_link = session.exec(
+                select(UserRoleLink).where(
+                    UserRoleLink.user_id == user.id,
+                    UserRoleLink.role_code == role.code,
+                    UserRoleLink.expires_at == None,
+                )
             ).first()
 
-        category = Category(
-            name=data_category["name"],
-            description=data_category["description"],
-            image_url=data_category["image_url"],
-            parent_id=parent.id if parent else None,
-        )
+            if not existing_link:
+                link = UserRoleLink(
+                    user_id=user.id,
+                    role_code=role.code,
+                    assigned_by_id=user.id,
+                    created_at=datetime.now(timezone.utc),
+                )
 
-        session.add(category)
-        session.flush()
+                session.add(link)
+                logger.info("Seed: relacion %s -> %s creada", email, role_code)
 
-        session.commit()
+        category_map = {}
+        for data_category in CATEGORIES:
 
-        category_map[data_category["name"]] = category
+            existing = session.exec(
+                select(Category).where(Category.name == data_category["name"])
+            ).first()
 
-        print(f"  [+] Categoria creada: {category.name}")
+            if existing:
+                category_map[data_category["name"]] = existing
+                continue
 
-    for state in ORDER_STATES:
-        existing = session.exec(
-            select(StateOrder).where(StateOrder.code == state["code"])
-        ).first()
+            parent = None
 
-        if existing:
-            print(f"Ya existe el estado {state["code"]}")
-        else:
-            state = StateOrder(
-                code=state["code"],
-                description=state["description"],
-                order=state["order"],
-                is_terminal=state["is_terminal"],
+            if data_category["parent_name"]:
+                parent = session.exec(
+                    select(Category).where(
+                        Category.name == data_category["parent_name"]
+                    )
+                ).first()
+
+            category = Category(
+                name=data_category["name"],
+                description=data_category["description"],
+                image_url=data_category["image_url"],
+                parent_id=parent.id if parent else None,
             )
 
-            session.add(state)
+            session.add(category)
+            session.flush()
 
-        session.commit()
+            category_map[data_category["name"]] = category
 
-    for payment in PAYMENT_METHODS:
-        existing = session.exec(
-            select(PaymentMethod).where(PaymentMethod.code == payment["code"])
-        ).first()
+            logger.info("Seed: categoria %s creada", category.name)
 
-        if existing:
-            print(f"Ya existe el metodo de pago {payment["code"]}")
-        else:
-            payment = PaymentMethod(
-                code=payment["code"],
-                description=payment["description"],
-                available=payment["available"],
-            )
+        for state in ORDER_STATES:
+            existing = session.exec(
+                select(StateOrder).where(StateOrder.code == state["code"])
+            ).first()
 
-            session.add(payment)
+            if not existing:
+                state = StateOrder(
+                    code=state["code"],
+                    description=state["description"],
+                    order=state["order"],
+                    is_terminal=state["is_terminal"],
+                )
+
+                session.add(state)
+                logger.info("Seed: estado %s creado", state.code)
+
+        for payment in PAYMENT_METHODS:
+            existing = session.exec(
+                select(PaymentMethod).where(PaymentMethod.code == payment["code"])
+            ).first()
+
+            if not existing:
+                payment = PaymentMethod(
+                    code=payment["code"],
+                    description=payment["description"],
+                    available=payment["available"],
+                )
+
+                session.add(payment)
+                logger.info("Seed: metodo de pago %s creado", payment.code)
 
         session.commit()
 

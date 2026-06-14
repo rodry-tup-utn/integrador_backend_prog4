@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import status
 from app.modules.product.models import Product
 from app.modules.product.schemas import (
     ProductCreate,
@@ -18,7 +18,11 @@ from app.modules.product.schemas import (
 )
 from app.modules.product_ingredient.models import ProductIngredient
 from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
-
+from app.core.exceptions import (
+    DuplicateResourceError,
+    BusinessRuleError,
+    ResourceNotFoundError,
+)
 from sqlmodel import Session
 from app.modules.product.unit_of_work import ProductUnitOfWork
 from datetime import datetime, timezone
@@ -29,12 +33,6 @@ if TYPE_CHECKING:
     from app.modules.category.models import Category
 
 
-def not_found_exception(name: str, id: int):
-    raise HTTPException(
-        status.HTTP_404_NOT_FOUND, f"{name.capitalize()} con id {id} no encontrado"
-    )
-
-
 class ProductService:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -42,13 +40,13 @@ class ProductService:
     def _get_or_404(self, uow: ProductUnitOfWork, product_id: int) -> Product:
         product = uow.products.get_by_id(product_id)
         if not product:
-            raise not_found_exception("Producto", product_id)
+            raise ResourceNotFoundError(resource="Producto", identifier=product_id)
         return product
 
     def _get_active_or_404(self, uow: ProductUnitOfWork, product_id: int) -> Product:
         product = uow.products.get_active_by_id(product_id)
         if not product:
-            raise not_found_exception("Producto", product_id)
+            raise ResourceNotFoundError(resource="Producto", identifier=product_id)
 
         return product
 
@@ -57,15 +55,14 @@ class ProductService:
     ) -> "Category":
         category = uow.categories.get_by_id_active(category_id)
         if not category:
-            raise not_found_exception("categoria", category_id)
+            raise ResourceNotFoundError(resource="Categoria", identifier=category_id)
         return category
 
     def _assert_name_unique(self, uow: ProductUnitOfWork, product_name: str):
 
         if uow.products.get_by_name(product_name):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"El producto con nombre {product_name} ya existe",
+            raise DuplicateResourceError(
+                resource="Producto", field="nombre", value=product_name
             )
 
     def _get_details_or_404(
@@ -75,7 +72,7 @@ class ProductService:
             product_id, active_only=active_only
         )
         if not product:
-            raise HTTPException(404, "Producto no encontrado")
+            raise ResourceNotFoundError(resource="Producto", identifier=product_id)
 
         primary_link = next(link for link in product.category_links if link.is_primary)
         primary = CategoryBase.model_validate(primary_link.category)
@@ -116,7 +113,7 @@ class ProductService:
 
         while current is not None:
             if current.id in visited:
-                raise ValueError("Ciclo detectado en categorias")
+                raise BusinessRuleError(message="Ciclo detectado en categorias")
 
             visited.add(current.id)  # type: ignore
             result.append(current.id)  # type: ignore
@@ -140,10 +137,16 @@ class ProductService:
         )
 
         if not ingredients_data:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Un producto manufacturado debe tener al menos 1 ingrediente",
+            raise BusinessRuleError(
+                message="Un producto manufacturado debe tener al menos 1 ingrediente",
             )
+
+        # validacion de ingrediente con cantidad 0
+        for ingredient in ingredients_data:
+            if ingredient.quantity_ingredient <= 0:
+                raise BusinessRuleError(
+                    "Un ingrediente no puede tener cantidad 0 o menor"
+                )
 
         found = uow.ingredients.get_active_by_ids(
             [i.ingredient_id for i in ingredients_data]
@@ -151,7 +154,10 @@ class ProductService:
         found_ids = {i.id for i in found}
         missing = set(i.ingredient_id for i in ingredients_data) - found_ids
         if missing:
-            raise HTTPException(404, f"Ingredientes no encontrados: {sorted(missing)}")
+            raise BusinessRuleError(
+                message=f"Ingredientes no encontrados: {sorted(missing)}"
+            )
+
         relations = [
             ProductIngredient(
                 product_id=product.id,  # type: ignore
@@ -169,9 +175,8 @@ class ProductService:
         error_message: str = "El producto no es de tipo Manufacturado",
     ):
         if product.type == ProductType.FINAL:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                error_message,
+            raise BusinessRuleError(
+                message=error_message,
             )
 
         # calcular stock por ingredientes o retornar product.stock en productos finales
@@ -188,15 +193,15 @@ class ProductService:
             ingredients = uow.ingredients.get_active_by_ids(ingredients_ids)
             ingredients_map = {i.id: i for i in ingredients}
 
-            posibles = []
+            stocks_values = []
 
             for rel in product.ingredients:
                 ing = ingredients_map.get(rel.ingredient_id)
                 if ing is None or ing.stock is None or rel.quantity_ingredient == 0:
                     return 0
-                posibles.append(ing.stock // rel.quantity_ingredient)
+                stocks_values.append(ing.stock // rel.quantity_ingredient)
 
-            return min(posibles) if posibles else 0
+            return min(stocks_values) if stocks_values else 0
 
         return product.stock  # type: ignore
 
@@ -307,9 +312,8 @@ class ProductService:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_or_404(uow, product_id)
             if product.deleted_at is None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "No se puede restaurar un producto que no está eliminado",
+                raise BusinessRuleError(
+                    message="No se puede restaurar un producto que no está eliminado",
                 )
             uow.products.restore(product)
             result = ProductAdmin.model_validate(product)
@@ -351,8 +355,7 @@ class ProductService:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_active_or_404(uow, product_id)
             if product.type == ProductType.MANUFACTURED:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "No se puede actualizar el stock de un producto manufacturado",
                 )
             product.stock = data.stock

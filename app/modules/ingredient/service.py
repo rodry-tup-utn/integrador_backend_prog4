@@ -1,4 +1,3 @@
-from fastapi import HTTPException, status
 from sqlmodel import Session
 from datetime import datetime, timezone
 
@@ -13,7 +12,11 @@ from app.modules.ingredient.schemas import (
     IngredientListFull,
     UpdateStockIngredient,
 )
-
+from app.core.exceptions import (
+    ResourceNotFoundError,
+    BusinessRuleError,
+    DuplicateResourceError,
+)
 from app.modules.ingredient.unit_of_work import IngredientUnitOfWork
 
 
@@ -28,9 +31,8 @@ class IngredientService:
         ingredient = uow.ingredientRepo.get_by_id(ingredient_id)
 
         if not ingredient:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Ingrediente id {ingredient_id} no encontrado",
+            raise ResourceNotFoundError(
+                resource="Ingrediente", identifier=ingredient_id
             )
         return ingredient
 
@@ -40,9 +42,8 @@ class IngredientService:
         ingredient = uow.ingredientRepo.get_active_ingredient_by_id(ingredient_id)
 
         if not ingredient:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Ingrediente con id {ingredient_id} no encontrado",
+            raise ResourceNotFoundError(
+                resource="Ingrediente", identifier=ingredient_id
             )
         return ingredient
 
@@ -50,9 +51,8 @@ class IngredientService:
         self, uow: IngredientUnitOfWork, ingredient_name: str
     ) -> None:
         if uow.ingredientRepo.ingredient_name_exists(ingredient_name):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"Ya existe un ingrediente con el nombre {ingredient_name}",
+            raise DuplicateResourceError(
+                resource="Ingrediente", field="nombre", value=ingredient_name
             )
 
     # -- Create --------------------------------------------------
@@ -122,9 +122,8 @@ class IngredientService:
             ingredient = self._get_active_or_404(uow, ingredient_id)
 
             if uow.product_ingredient.ingredient_has_products(ingredient_id):
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"No se puede eliminar el ingrediente '{ingredient.name}' porque está vinculado a uno o más productos",
+                raise BusinessRuleError(
+                    "El ingrediente no puede eliminarse ya que se encuentra vinculado a uno o mas productos"
                 )
 
             uow.ingredientRepo.soft_delete_ingredient(ingredient)
@@ -136,9 +135,7 @@ class IngredientService:
             ingredient = self._get_or_404(uow, ingredient_id)
 
             if ingredient.deleted_at is None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, "El ingrediente no está eliminado"
-                )
+                raise BusinessRuleError("El ingrediente no está eliminado")
 
             uow.ingredientRepo.restore_ingredient(ingredient)
             return IngredientPrivate.model_validate(ingredient)

@@ -1,5 +1,5 @@
-from fastapi import HTTPException, status
 from app.modules.category.models import Category
+from fastapi import status
 from app.modules.category.schemas import (
     CategoryCreate,
     CategoryList,
@@ -13,6 +13,11 @@ from app.modules.category.schemas import (
 from sqlmodel import Session
 from app.modules.category.unit_of_work import CategoryUnitOfWork
 from datetime import datetime, timezone
+from app.core.exceptions import (
+    BusinessRuleError,
+    DuplicateResourceError,
+    ResourceNotFoundError,
+)
 
 
 class CategoryService:
@@ -24,26 +29,20 @@ class CategoryService:
     def _get_or_404(self, uow: CategoryUnitOfWork, category_id: int) -> Category:
         category = uow.categories.get_by_id(category_id)
         if not category:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Categoria id {category_id} no encontrada",
-            )
+            raise ResourceNotFoundError(resource="Categoría", identifier=category_id)
         return category
 
     def _get_active_or_404(self, uow: CategoryUnitOfWork, category_id: int) -> Category:
         category = uow.categories.get_by_id_active(category_id)
         if not category:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                "Categoria no encontrada",
-            )
+            raise ResourceNotFoundError(resource="Categoría", identifier=category_id)
+
         return category
 
     def _assert_name_unique(self, uow: CategoryUnitOfWork, category_name: str):
         if uow.categories.get_by_name(category_name):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"La categoria con nombre {category_name} ya existe",
+            raise DuplicateResourceError(
+                resource="Categoria", field="nombre", value=category_name
             )
 
     # Create
@@ -103,12 +102,11 @@ class CategoryService:
         if new_parent_id is not None:
             products = uow.category_products.has_products(category.id)  # type: ignore // categoria siempre tiene id
             if products:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "No puedes modificar el arbol de jerarquias en una categoria con productos",
                 )
             if category.id == new_parent_id:
-                raise HTTPException(400, "No puedes asignar la categoria a si misma")
+                raise BusinessRuleError("No puedes asignar la categoria a si misma")
 
             self._get_active_or_404(uow, new_parent_id)
 
@@ -116,9 +114,7 @@ class CategoryService:
             category_map = self._build_category_map(categories)
 
             if self._would_create_cycle(category, new_parent_id, category_map):
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, "Ciclo detectado en jerarquía"
-                )
+                raise BusinessRuleError("Ciclo detectado en jerarquía")
 
         category.parent_id = new_parent_id
         category.updated_at = datetime.now(timezone.utc)
@@ -158,13 +154,11 @@ class CategoryService:
             links = uow.category_products.has_products(category_id)
 
             if links:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "No se puede eliminar una categoria con productos asociados",
                 )
             if children:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "No puedes eliminar una categoria con hijos activos",
                 )
 
@@ -207,9 +201,8 @@ class CategoryService:
         with CategoryUnitOfWork(self._session) as uow:
             category = self._get_or_404(uow, category_id)
             if category.deleted_at is None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "La categoria no está eliminada",
+                raise BusinessRuleError(
+                    f"La categoria {category.name} no está eliminada",
                 )
             uow.categories.restore(category)
             result = CategoryPrivate.model_validate(category)
@@ -307,7 +300,7 @@ class CategoryService:
     ) -> CategoryNode:
 
         if category.id in visited:
-            raise HTTPException(400, "Ciclo detectado en la base de datos")
+            raise BusinessRuleError("Ciclo detectado en la base de datos")
         visited.add(category.id)  # type: ignore
 
         has_children = category.id in has_children_set
@@ -366,7 +359,7 @@ class CategoryService:
             root = next((c for c in categorias if c.id == root_id), None)
 
             if not root:
-                raise HTTPException(404, "Categoría no encontrada")
+                raise ResourceNotFoundError(resource="Categoría", identifier=root_id)
 
             tree_map = self._build_tree_map(categorias)
             has_children_set = self._build_has_children_set(categorias)
@@ -383,7 +376,7 @@ class CategoryService:
             parent = next((c for c in categorias if c.id == parent_id), None)
 
             if not parent:
-                raise HTTPException(404, "Categoría no encontrada")
+                raise ResourceNotFoundError(resource="Categoría", identifier=parent_id)
 
             tree_map = self._build_tree_map(categorias)
             has_children_set = self._build_has_children_set(categorias)
