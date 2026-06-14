@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Path
+from fastapi import APIRouter, Depends, Path
 from sqlmodel import Session
 from typing import Annotated
 
