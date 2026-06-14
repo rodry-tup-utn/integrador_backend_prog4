@@ -1,7 +1,8 @@
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.modules.websocket.manager import manager
 from app.modules.auth.dependencies import get_token_payload
+from app.core.exceptions import AuthenticationError
 
 logger = logging.getLogger("app.modules.websocket.router")
 router = APIRouter(prefix="/ws", tags=["WebSocket"])
@@ -53,7 +54,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-    except HTTPException:  # <-- nuevo
+    except AuthenticationError:
         await websocket.close(code=1008)
         manager.disconnect(websocket)
 

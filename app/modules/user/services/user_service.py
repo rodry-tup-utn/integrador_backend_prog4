@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import status
 from app.modules.user.schemas import (
     UserResponse,
     UserCreate,
@@ -20,6 +20,12 @@ from app.modules.user.unit_of_work import UserUnitOfWork
 from app.modules.user.models import User, Role, UserRoleLink
 from datetime import datetime, timezone
 from app.core.security import get_password_hash, verify_password
+from app.core.exceptions import (
+    ResourceNotFoundError,
+    DuplicateResourceError,
+    BusinessRuleError,
+    AuthenticationError,
+)
 
 DEFAULT_ROLE = "CLIENT"
 
@@ -31,32 +37,25 @@ class UserService:
     def _get_or_404(self, uow: UserUnitOfWork, user_id: int) -> User:
         user = uow.users.get_by_id(user_id)
         if not user:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Usuario con id {user_id} no encontrado",
-            )
+            raise ResourceNotFoundError(resource="Usuario", identifier=user_id)
         return user
 
     def _get_active_or_404(self, uow: UserUnitOfWork, user_id: int) -> User:
         user = uow.users.get_by_id(user_id, True)
         if not user:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"Usuario con id {user_id} no encontrado",
-            )
+            raise ResourceNotFoundError(resource="Usuario", identifier=user_id)
         return user
 
     def _assert_email_unique(self, uow: UserUnitOfWork, email: str):
         if uow.users.exists_by_email(email):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"Ya existe un usuario registrado con el email {email}",
+            raise DuplicateResourceError(
+                resource="Usuario", field="email", value=email
             )
 
     def _get_role_by_code_or_404(self, uow: UserUnitOfWork, code: str) -> Role:
         role = uow.roles.get_by_code(code)
         if not role:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Rol {code} inexistente")
+            raise ResourceNotFoundError(resource="Rol", identifier=code)
         return role
 
     def create(self, data: UserCreate) -> UserResponse:
@@ -144,16 +143,14 @@ class UserService:
         with UserUnitOfWork(self._session) as uow:
             credentials = uow.users.get_auth_credential(email)
             if not credentials:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND, f"Usuario email {email} no encontrado"
-                )
+                raise ResourceNotFoundError(resource="Usuario", identifier=email)
             return credentials
 
     def get_session_data(self, user_id: int) -> UserSessionRead:
         with UserUnitOfWork(self._session) as uow:
             user = uow.users.get_by_id(user_id, True)
             if not user:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+                raise ResourceNotFoundError(resource="Usuario", identifier=user_id)
 
             now = datetime.now(timezone.utc)
             active_roles = [
@@ -172,8 +169,7 @@ class UserService:
 
     def soft_delete(self, user_id: int, admin_id: int):
         if user_id == admin_id:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
+            raise BusinessRuleError(
                 "Un administrador no puede eliminarse a si mismo",
             )
         with UserUnitOfWork(self._session) as uow:
@@ -185,8 +181,7 @@ class UserService:
         with UserUnitOfWork(self._session) as uow:
             user = self._get_or_404(uow, user_id)
             if user.deleted_at is None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "No se puede restaurar un usuario activo",
                 )
             uow.users.restore(user)
@@ -249,14 +244,10 @@ class UserService:
                 user_id, role_code
             )
             if not user_role_link:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND, "Relacion de rol no encontrada"
-                )
+                raise ResourceNotFoundError(resource="Relación de rol")
 
             if user_role_link.expires_at is not None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, "El rol ya se encuentra desactivado"
-                )
+                raise BusinessRuleError("El rol ya se encuentra desactivado")
 
             actual_date = datetime.now(timezone.utc)
             user_role_link.expires_at = actual_date
@@ -269,7 +260,7 @@ class UserService:
         with UserUnitOfWork(self._session) as uow:
             user = uow.users.get_by_id(user_id, True)
             if not user:
-                raise HTTPException(status.http_404, "Usuario no encontrado")
+                raise ResourceNotFoundError(resource="Usuario", identifier=user_id)
 
             now = datetime.now(timezone.utc)
 
@@ -297,10 +288,7 @@ class UserService:
             user = uow.users.get_with_roles_and_addresses(user_id, only_actives=True)
 
             if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Usuario no encontrado",
-                )
+                raise ResourceNotFoundError(resource="Usuario", identifier=user_id)
 
             now = datetime.now(timezone.utc)
 
@@ -346,9 +334,7 @@ class UserService:
             user = self._get_active_or_404(uow, user_id)
 
             if not verify_password(data.old_pass, user.hashed_pass):
-                raise HTTPException(
-                    status.HTTP_401_UNAUTHORIZED, "Contraseña incorrecta"
-                )
+                raise AuthenticationError("Contraseña incorrecta")
 
             new_hashed_pass = get_password_hash(data.new_pass)
 

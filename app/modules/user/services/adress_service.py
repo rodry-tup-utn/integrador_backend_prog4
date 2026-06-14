@@ -1,4 +1,3 @@
-from fastapi import HTTPException, status
 from app.modules.user.models import Address
 from app.modules.user.schemas import (
     AddressRead,
@@ -8,6 +7,11 @@ from app.modules.user.schemas import (
 from app.modules.user.unit_of_work import UserUnitOfWork
 from sqlmodel import Session
 from datetime import datetime, timezone
+from app.core.exceptions import (
+    ResourceNotFoundError,
+    AuthorizationError,
+    BusinessRuleError,
+)
 
 
 class DeliveryAdressService:
@@ -17,15 +21,12 @@ class DeliveryAdressService:
     def _get_active_or_404(self, uow: UserUnitOfWork, id: int) -> Address:
         address = uow.delivery_adress.get_by_id(id)
         if not address or address.deleted_at is not None:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, f"Domicilio con id {id} no encontrado"
-            )
+            raise ResourceNotFoundError(resource="Domicilio", identifier=id)
         return address
 
     def _verify_ownership(self, address: Address, user_id: int) -> None:
         if address.user_id != user_id:
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
+            raise AuthorizationError(
                 "No tienes permisos para modificar este domicilio",
             )
 
@@ -69,8 +70,7 @@ class DeliveryAdressService:
         with UserUnitOfWork(self._session) as uow:
             address = uow.delivery_adress.get_by_id(id)
             if not address or address.deleted_at is None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
+                raise BusinessRuleError(
                     "El domicilio no se encuentra eliminado",
                 )
             self._verify_ownership(address, user_id)

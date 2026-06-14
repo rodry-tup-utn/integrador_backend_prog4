@@ -1,4 +1,3 @@
-from fastapi import HTTPException, status
 from sqlmodel import Session
 from decimal import Decimal
 from app.modules.order.unit_of_work import OrderUnitOfWork
@@ -25,6 +24,11 @@ from app.modules.order.services.stock_service import StockService
 from app.modules.order.services.state_service import OrderStateService
 import logging
 from app.modules.websocket.manager import manager
+from app.core.exceptions import (
+    ResourceNotFoundError,
+    BusinessRuleError,
+    AuthorizationError,
+)
 
 logger = logging.getLogger("app.modules.orders.services.order_service")
 
@@ -82,14 +86,9 @@ class OrderService:
     def _check_payment_method(self, uow: OrderUnitOfWork, payload_code: str):
         payload = uow.payment_methods.get_by_code(payload_code)
         if not payload:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, "Método de pago no encontrado"
-            )
+            raise ResourceNotFoundError(resource="Método de pago", identifier=payload_code)
         if not payload.available:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Método de pago no disponible",
-            )
+            raise BusinessRuleError("Método de pago no disponible")
         return payload
 
     def _validate_address(
@@ -97,9 +96,9 @@ class OrderService:
     ) -> Address:
         address = uow.addresses.get_by_id(address_id)
         if not address or address.deleted_at:
-            raise HTTPException(404, "Dirección no encontrada")
+            raise ResourceNotFoundError(resource="Dirección", identifier=address_id)
         if address.user_id != user_id:
-            raise HTTPException(403, "La dirección no pertenece al usuario")
+            raise AuthorizationError("La dirección no pertenece al usuario")
         return address
 
     def _order_to_detail(self, order: Order) -> OrderDetailPublic:
@@ -123,9 +122,7 @@ class OrderService:
     def _get_or_404(self, uow: OrderUnitOfWork, order_id: int):
         order = uow.orders.get_by_id(order_id)
         if not order:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, f"Orden id {order_id} no encontrada"
-            )
+            raise ResourceNotFoundError(resource="Orden", identifier=order_id)
         return order
 
     async def _emit_ws_events(self, order_id: int, new_state: str, event: str) -> None:
@@ -192,10 +189,7 @@ class OrderService:
         with OrderUnitOfWork(self._session) as uow:
             order = self._get_or_404(uow, order_id)
             if order.user_id != user_id:
-                raise HTTPException(
-                    status.HTTP_403_FORBIDDEN,
-                    "No tienes permiso para ver este pedido",
-                )
+                raise AuthorizationError("No tienes permiso para ver este pedido")
             return self._order_to_detail(order)
 
     def get_by_id_admin(self, order_id: int) -> OrderDetailPublic:
@@ -228,19 +222,13 @@ class OrderService:
         with OrderUnitOfWork(self._session) as uow:
             order = self._get_or_404(uow, order_id)
             if order.user_id != user_id:
-                raise HTTPException(
-                    status.HTTP_403_FORBIDDEN,
-                    "No tienes permiso para cancelar este pedido",
-                )
+                raise AuthorizationError("No tienes permiso para cancelar este pedido")
 
             self.state.check_update_state(order.state_code, self.state.TERMINAL_CLIENT)
 
             state = self.state.check_state_order(uow, self.state.CANCELLED)
             if order.state_code == state.code:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "El pedido ya está cancelado",
-                )
+                raise BusinessRuleError("El pedido ya está cancelado")
 
             old_state = order.state_code
             uow.orders.update_state(order, state.code)
@@ -279,10 +267,7 @@ class OrderService:
             self.state.check_update_state(order.state_code, self.state.TERMINAL_STAFF)
 
             if new_state.order - old_state.order != 1:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "No puedes saltar mas de un estado",
-                )
+                raise BusinessRuleError("No puedes saltar mas de un estado")
 
             if new_state.code == self.state.CONFIRMED:
                 product_map = self.stock.get_product_map(
@@ -308,10 +293,7 @@ class OrderService:
                     uow.ingredients.decrease_stock_batch(list(needs.items()))
 
             if order.state_code == new_state_code:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "El pedido ya está en ese estado",
-                )
+                raise BusinessRuleError("El pedido ya está en ese estado")
 
             old_state = order.state_code
             uow.orders.update_state(order, new_state.code)
@@ -339,10 +321,7 @@ class OrderService:
 
             state = self.state.check_state_order(uow, self.state.CANCELLED)
             if order.state_code == state.code:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "El pedido ya está cancelado",
-                )
+                raise BusinessRuleError("El pedido ya está cancelado")
 
             old_state = order.state_code
             uow.orders.update_state(order, state.code)
@@ -372,10 +351,7 @@ class OrderService:
             order = self._get_or_404(uow, order_id)
 
             if order.deleted_at is not None:
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "La orden ya se encuentra borrada",
-                )
+                raise BusinessRuleError("La orden ya se encuentra borrada")
 
             now = datetime.now(timezone.utc)
             order.deleted_at = now
