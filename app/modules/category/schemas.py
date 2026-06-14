@@ -17,24 +17,27 @@ class CategoryPublic(SQLModel):
     name: str
     description: str | None
     image_url: str | None
+
+
+class CategoryPrivate(CategoryPublic):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
 
 
-class CategoryPublicTree(CategoryPublic):
-    children: list[CategoryPublicTree]
-
-
-class CategoryTree(SQLModel):
+class CategoryNode(SQLModel):
     id: int
     name: str
     parent_id: int | None
-    children: list[CategoryTree]
+    has_children: bool
+    children: list[CategoryNode]
+
+
+class CategoryParentUpdate(SQLModel):
+    parent_id: int | None
 
 
 class CategoryUpdate(SQLModel):
-    parent_id: int | None = Field(default=None)
     name: str | None = Field(default=None, min_length=4, max_length=50)
     description: str | None = Field(default=None, max_length=255, min_length=5)
     image_url: str | None = Field(default=None, max_length=255, min_length=5)
@@ -43,3 +46,12 @@ class CategoryUpdate(SQLModel):
 class CategoryList(SQLModel):
     data: List[CategoryPublic]
     total: int
+
+
+class CategoryListPrivate(SQLModel):
+    data: List[CategoryPrivate]
+    total: int
+
+
+class CategoryPath(SQLModel):
+    path: list[str]

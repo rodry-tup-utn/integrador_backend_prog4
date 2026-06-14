@@ -4,12 +4,17 @@ from app.modules.category.service import CategoryService
 from app.modules.category.schemas import (
     CategoryCreate,
     CategoryList,
+    CategoryParentUpdate,
     CategoryPublic,
     CategoryUpdate,
-    CategoryTree,
+    CategoryNode,
+    CategoryListPrivate,
+    CategoryPrivate,
+    CategoryPath,
 )
 from app.core.database import get_session
 from typing import Annotated
+from app.modules.auth.dependencies import require_role
 
 
 def get_category_service(session: Session = Depends(get_session)) -> CategoryService:
@@ -17,7 +22,11 @@ def get_category_service(session: Session = Depends(get_session)) -> CategorySer
 
 
 router = APIRouter(prefix="/category", tags=["Public - Categorias"])
-admin_router = APIRouter(prefix="/admin/category", tags=["Admin - Categorias"])
+admin_router = APIRouter(
+    prefix="/admin/category",
+    tags=["Admin - Categorias"],
+    dependencies=[Depends(require_role(["ADMIN"]))],
+)
 
 
 @router.get("/", response_model=CategoryList)
@@ -26,7 +35,7 @@ def list_all_actives(
     limit: int = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.list_all(offset, limit)
+    return svc.list_all_actives(offset, limit)
 
 
 @router.get("/search", response_model=CategoryList)
@@ -45,35 +54,35 @@ def list_root_active(
     limit: Annotated[int, Query(le=100)] = 20,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.get_root_categories(offset, limit)
+    return svc.get_active_root_categories(offset, limit)
 
 
-@router.get("/tree", response_model=list[CategoryTree])
-def get_full_tree(
-    max_depth: Annotated[int, Query(ge=1, le=4)] = 3,
+@router.get("/nodes/root", response_model=list[CategoryNode])
+def get_nodes_root(
+    depth: Annotated[int, Query(ge=1, le=4)] = 2,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.get_full_tree(max_depth)
+    return svc.get_node_tree_from_root(depth)
 
 
-@router.get("/children/{id}")
-def get_children_list(
+@router.get("/{id}/path", response_model=CategoryPath)
+def get_category_path(
     id: Annotated[int, Path(ge=1)],
-    max_depth: Annotated[int, Query(le=5, ge=1)] = 3,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.get_full_tree_by_id(id, max_depth)
+    return svc.get_category_path(id)
 
 
-@router.post("/", response_model=CategoryPublic, status_code=201)
-def create(
-    data: CategoryCreate,
+@router.get("/nodes/{parent_id}/children", response_model=list[CategoryNode])
+def get_nodes_children(
+    parent_id: Annotated[int, Path(ge=1)],
+    depth: Annotated[int, Query(ge=1, le=4)] = 2,
     svc: CategoryService = Depends(get_category_service),
 ):
-    return svc.create(data)
+    return svc.get_node_children_from_id(parent_id, depth)
 
 
-@router.patch("/{id}", response_model=CategoryPublic)
+@admin_router.patch("/{id}", response_model=CategoryPublic)
 def update(
     id: Annotated[int, Path(ge=1)],
     data: CategoryUpdate,
@@ -90,7 +99,7 @@ def get_by_id(
     return svc.get_by_id(id)
 
 
-@admin_router.get("/", response_model=CategoryList)
+@admin_router.get("/", response_model=CategoryListPrivate)
 def list_all_admin(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -99,7 +108,15 @@ def list_all_admin(
     return svc.list_all_admin(offset, limit)
 
 
-@admin_router.get("/search", response_model=CategoryList)
+@admin_router.post("/", response_model=CategoryPrivate, status_code=201)
+def create(
+    data: CategoryCreate,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.create(data)
+
+
+@admin_router.get("/search", response_model=CategoryListPrivate)
 def search_admin(
     query: Annotated[str, Query(max_length=50, min_length=3)],
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -109,7 +126,25 @@ def search_admin(
     return svc.search_all_by_name(query, offset, limit)
 
 
-@admin_router.patch("/{id}/restore", response_model=CategoryPublic)
+@admin_router.get("/root", response_model=CategoryListPrivate)
+def list_root(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(le=100)] = 20,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_root_categories(offset, limit)
+
+
+@admin_router.patch("/{id}/parent", response_model=CategoryPrivate)
+def change_parent(
+    id: Annotated[int, Path(ge=1)],
+    data: CategoryParentUpdate,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.change_parent(id, data.parent_id)
+
+
+@admin_router.patch("/{id}/restore", response_model=CategoryPrivate)
 def restore(
     id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),
@@ -125,7 +160,7 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.get("/{id}", response_model=CategoryPublic)
+@admin_router.get("/{id}", response_model=CategoryPrivate)
 def get_by_id_admin(
     id: Annotated[int, Path(ge=1)],
     svc: CategoryService = Depends(get_category_service),

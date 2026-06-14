@@ -2,6 +2,15 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from decimal import Decimal
+from sqlalchemy import Column, DateTime
+from app.modules.order_item.models import OrderItem
+from enum import StrEnum
+
+
+class ProductType(StrEnum):
+    FINAL = "FINAL"
+    MANUFACTURED = "MANUFACTURED"
+
 
 if TYPE_CHECKING:
     from app.modules.product_category.models import ProductCategoryLink
@@ -15,9 +24,24 @@ class Product(SQLModel, table=True):
     name: str = Field(min_length=3, max_length=150, unique=True)
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
+    stock: int | None = Field(ge=0, default=None)
     images_url: str | None = Field(default=None)
+    available: bool = Field(default=True)
+    type: ProductType
+
     category_links: list["ProductCategoryLink"] = Relationship(back_populates="product")
     ingredients: list["ProductIngredient"] = Relationship(back_populates="product")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
+    order_items: list["OrderItem"] = Relationship(back_populates="product")
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )

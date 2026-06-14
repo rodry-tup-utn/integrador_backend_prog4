@@ -14,7 +14,7 @@ class CategoryRepository(BaseRepository[Category]):
         super().__init__(session, Category)
 
     def get_by_name(self, category_name: str) -> Category | None:
-        statement = select(Category).where(Category.name == category_name)
+        statement = select(Category).where(func.lower(Category.name) == category_name.lower())
         return self.session.exec(statement).first()
 
     def get_by_name_active(self, category_name: str) -> Category | None:
@@ -24,18 +24,36 @@ class CategoryRepository(BaseRepository[Category]):
         )
         return self.session.exec(statement).first()
 
-    def get_all_active(self, offset: int = 0, limit: int = 20) -> Sequence[Category]:
+    def get_all_ordered(
+        self, offset: int = 0, limit: int = 20, only_actives=False
+    ) -> Sequence[Category]:
         statement = (
             select(Category)
-            .where(col(Category.deleted_at).is_(None))
             .order_by(func.lower(Category.name))
             .offset(offset)
             .limit(limit)
         )
+
+        if only_actives:
+            statement = statement.where(col(Category.deleted_at).is_(None))
         return self.session.exec(statement).all()
 
     def get_all_active_no_paged(self) -> Sequence[Category]:
-        statement = select(Category).where(col(Category.deleted_at).is_(None))
+        statement = (
+            select(Category)
+            .where(col(Category.deleted_at).is_(None))
+            .order_by(func.lower(Category.name))
+        )
+        return self.session.exec(statement).all()
+
+    def get_all_root(self, offset: int = 0, limit: int = 20) -> Sequence[Category]:
+        statement = (
+            select(Category)
+            .where(col(Category.parent_id).is_(None))
+            .order_by(func.lower(Category.name))
+            .offset(offset)
+            .limit(limit)
+        )
         return self.session.exec(statement).all()
 
     def get_all_root_active(

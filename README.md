@@ -2,6 +2,10 @@
 
 [Link a la carpeta del video](https://drive.google.com/drive/folders/1kaCuwf9_A2KVDeiCYk1yYTer775apSkW?usp=sharing)
 
+# Entrega parcial 2 - link al video
+
+[Link a la carpeta del video](https://drive.google.com/drive/folders/1Wnf7Lnq5ItKVFPtEi0c9EeA6X1bq7FrO?usp=drive_link)
+
 # 📦 API Backend - Programación IV
 
 Proyecto desarrollado para la materia **Programación IV**  

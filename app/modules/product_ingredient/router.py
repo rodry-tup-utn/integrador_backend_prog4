@@ -9,6 +9,7 @@ from app.modules.product_ingredient.schemas import (
     ProductIngredientPublic,
     ProductIngredientUpdate,
     ProductWithIngredients,
+    ProductIngredientBatchCreate,
 )
 
 
@@ -27,6 +28,15 @@ def get_product_with_ingredients(
     svc: ProductIngredientService = Depends(get_service),
 ):
     return svc.get_product_with_ingredients(product_id)
+
+
+@router.post("/batch", response_model=ProductWithIngredients, status_code=201)
+def add_ingredients_batch(
+    product_id: Annotated[int, Path(ge=1)],
+    data: ProductIngredientBatchCreate,
+    svc: ProductIngredientService = Depends(get_service),
+):
+    return svc.add_ingredients_batch(product_id, data)
 
 
 @router.post(
