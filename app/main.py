@@ -19,11 +19,18 @@ from app.modules.order.router import admin_router as admin_order_router
 from app.modules.order.router import orders_router
 from app.modules.websocket.router import router as ws_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.exceptions import register_exception_handlers
+from app.core.middleware import LoggingMiddleware, TimingMiddleware, RateLimitMiddleware
+from app.core.config import settings
+from app.core.logger import setup_logging
+from app.db.seed import run
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    setup_logging()
+    run()
     yield
 
 
@@ -33,6 +40,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+register_exception_handlers(app)
 
 app.include_router(admin_category_router)
 app.include_router(public_category_router)
@@ -51,15 +60,13 @@ app.include_router(admin_order_router)
 app.include_router(orders_router)
 app.include_router(ws_router)
 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(LoggingMiddleware, log_body=False)
+app.add_middleware(TimingMiddleware)
+app.add_middleware(RateLimitMiddleware)
