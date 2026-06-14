@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 from sqlmodel import Session
 from app.core.database import get_session
+from app.core.config import settings
 from app.modules.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
@@ -24,12 +25,13 @@ def login_for_access_token(
     Aquí tratamos a 'username' como si fuera el 'email'.
     """
     token = auth_service.login(email=form_data.username, password=form_data.password)
+    is_production = settings.environment == "production"
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        max_age=1800,  # 30 minutos, o el valor de expires_in
-        samesite="lax",
-        secure=False,  # En producción con HTTPS debería ser True
+        max_age=1800,
+        samesite="none" if is_production else "lax",
+        secure=True,
     )
     return {"message": "Login exitoso. Sesión iniciada"}

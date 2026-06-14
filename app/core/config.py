@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     rate_limit_default_per_minute: int = 60
     rate_limit_auth_burst: int = 3
     rate_limit_auth_per_minute: float = 0.333
+    environment: str = "development"
     cors_allowed_origins: str = "http://localhost:5173"
 
     @property
