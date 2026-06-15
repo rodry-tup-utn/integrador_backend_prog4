@@ -9,6 +9,7 @@ from app.modules.ingredient.models import Ingredient
 from datetime import datetime, timezone
 from app.modules.category.models import Category
 from app.modules.order.models import StateOrder, PaymentMethod
+from app.modules.payments.models import Payment
 
 datetime_now = datetime.now(timezone.utc)
 
