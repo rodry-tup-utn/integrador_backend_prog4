@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.modules.order_item.models import OrderItem
+    from app.modules.payments.models import Payment
 
 
 class PaymentMethod(SQLModel, table=True):
@@ -78,6 +79,7 @@ class Order(SQLModel, table=True):
     address: Address = Relationship(back_populates="orders")
     historials: list["OrderHistorial"] = Relationship(back_populates="order")
     order_items: list["OrderItem"] = Relationship(back_populates="order")
+    payments: list["Payment"] = Relationship(back_populates="order")
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
