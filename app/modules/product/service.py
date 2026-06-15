@@ -226,7 +226,8 @@ class ProductService:
                 product.id, chain_ids, data.category_id  # type: ignore
             )
 
-            self._add_ingredients(uow, product, data.ingredients)
+            if data.ingredients:
+                self._add_ingredients(uow, product, data.ingredients)
 
             result = ProductPublic.model_validate(product)
         return result
