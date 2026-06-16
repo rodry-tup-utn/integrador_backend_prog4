@@ -47,7 +47,7 @@ async def mp_webhook(
     except Exception:
         body = {}
 
-    return svc.process_notification_webook(
+    return await svc.process_notification_webook(
         body=body,
         query_params=dict(request.query_params),
         x_signature=x_signature,
