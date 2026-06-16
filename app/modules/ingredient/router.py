@@ -12,9 +12,11 @@ from app.modules.ingredient.schemas import (
     IngredientUpdate,
     IngredientPrivate,
     IngredientListFull,
+    MeasurementUnitPublic,
     UpdateStockIngredient,
 )
 from app.modules.auth.dependencies import require_role
+from app.modules.ingredient.models import MeasurementUnit
 
 
 def get_ingredient_service(
@@ -34,6 +36,13 @@ admin_router = APIRouter(
 )
 
 # -- Endpoints Públicos --------------------------------------------------
+
+
+@router.get("/measurement-units", response_model=list[MeasurementUnitPublic])
+def list_measurement_units(
+    svc: IngredientService = Depends(get_ingredient_service),
+):
+    return svc.list_measurement_units()
 
 
 @router.get("/", response_model=IngredientList)
