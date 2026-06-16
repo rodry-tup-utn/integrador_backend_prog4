@@ -26,6 +26,8 @@ from app.core.middleware import LoggingMiddleware, TimingMiddleware, RateLimitMi
 from app.core.config import settings
 from app.core.logger import setup_logging
 from app.db.seed import run
+from app.core.cloudinary.client import init_cloudinary
+from app.modules.uploads.router import router as upload_router
 
 
 @asynccontextmanager
@@ -33,6 +35,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     setup_logging()
     run()
+    init_cloudinary()
     yield
 
 
@@ -63,6 +66,7 @@ app.include_router(orders_router)
 app.include_router(public_payment_router)
 app.include_router(admin_payment_router)
 app.include_router(ws_router)
+app.include_router(upload_router)
 
 app.add_middleware(
     CORSMiddleware,
