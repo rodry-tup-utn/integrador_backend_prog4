@@ -108,7 +108,7 @@ class ProductIngredientService:
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
                     quantity_ingredient=rel.quantity_ingredient,
-                    measurement_unit=rel.ingredient.measurement_unit,
+                    measurement_unit_code=rel.ingredient.measurement_unit_code,
                 )
                 for rel in relations
                 if rel.ingredient
@@ -198,7 +198,7 @@ class ProductIngredientService:
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
                     quantity_ingredient=rel.quantity_ingredient,
-                    measurement_unit=rel.ingredient.measurement_unit,
+                    measurement_unit_code=rel.ingredient.measurement_unit_code,
                 )
                 for rel in all_relations
                 if rel.ingredient

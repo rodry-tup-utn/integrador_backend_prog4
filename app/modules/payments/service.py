@@ -10,6 +10,7 @@ from app.modules.payments.unit_of_work import PaymentUnitOfWork
 from app.modules.order.models import Order
 from app.core.mercadopago.utils import get_mp_sdk, verify_mp_signature
 from app.core.mercadopago.config import mp_settings
+from app.modules.websocket.manager import manager
 from mercadopago.config import RequestOptions
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 ORDER_STATE_PENDING = "PENDING"
 ORDER_STATE_CONFIRMED = "CONFIRMED"
 MP_STATUS_APPROVED = "approved"
+WS_EVENT_PAYMENT_APPROVED = "payment_approved"
+WS_ROLES_TO_NOTIFY = ["ORDERS", "ADMIN"]
 
 
 def not_found_exception(name: str, id: int | str):
@@ -39,7 +42,7 @@ class PaymentService:
 
     # helper para buscar un pago por su id
     def _get_payment_or_404(self, uow: PaymentUnitOfWork, payment_id: int) -> Payment:
-        payment = uow.payments.get_by_id(payment_id)
+        payment = uow.paymentsRepo.get_by_id(payment_id)
 
         if not payment:
             raise not_found_exception("Pago", payment_id)
@@ -107,6 +110,15 @@ class PaymentService:
 
         return notification_type, data_id
 
+    async def _emit_ws_payment_event(self, order_id: int) -> None:
+        data = {"order_id": order_id}
+        await manager.broadcast_to_order(order_id, WS_EVENT_PAYMENT_APPROVED, data)
+        await manager.broadcast_to_roles(WS_ROLES_TO_NOTIFY, WS_EVENT_PAYMENT_APPROVED, data)
+        logger.info(
+            f"WS emitido: {WS_EVENT_PAYMENT_APPROVED} | pedido={order_id} | "
+            f"rooms_activas={manager.get_rooms_info()}"
+        )
+
     # método que crea la preferencia de pago para el checkout
     def create_preference(self, order_id: int) -> CheckoutPreferenceResponse:
         with PaymentUnitOfWork(self._session) as uow:
@@ -128,7 +140,7 @@ class PaymentService:
                 uow.paymentsRepo.add(payment)
             else:
                 payment = Payment(
-                    order_id=order.id,
+                    order_id=order.id,  # type: ignore
                     external_reference=f"order-{order.id}",
                     idempotency_key=str(uuid.uuid4()),
                     transaction_amount=total,
@@ -167,7 +179,7 @@ class PaymentService:
             preference = response["response"]
 
             result = CheckoutPreferenceResponse(
-                payment_id=payment.id,
+                payment_id=payment.id,  # type: ignore
                 preference_id=preference["id"],
                 init_point=preference["init_point"],
                 sandbox_init_point=preference["sandbox_init_point"],
@@ -183,7 +195,7 @@ class PaymentService:
             return [PaymentPublic.model_validate(payment) for payment in payments]
 
     # Método para confirmación de estado de pago de Mercado Pago y cambio del estado de la orden
-    def process_notification_webook(
+    async def process_notification_webook(
         self,
         body: dict,
         query_params: dict,
@@ -258,5 +270,6 @@ class PaymentService:
                 order = uow.ordersRepo.get_by_id(payment.order_id)
                 if order and order.state_code == ORDER_STATE_PENDING:
                     uow.ordersRepo.update_state(order, ORDER_STATE_CONFIRMED)
+                    await self._emit_ws_payment_event(payment.order_id)
 
         return {"status": "ok"}

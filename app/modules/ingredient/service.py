@@ -1,7 +1,7 @@
-from sqlmodel import Session
+from sqlmodel import Session, select
 from datetime import datetime, timezone
 
-from app.modules.ingredient.models import Ingredient
+from app.modules.ingredient.models import Ingredient, MeasurementUnit
 from app.modules.ingredient.schemas import (
     IngredientCreate,
     IngredientFilters,
@@ -10,6 +10,7 @@ from app.modules.ingredient.schemas import (
     IngredientUpdate,
     IngredientPrivate,
     IngredientListFull,
+    MeasurementUnitPublic,
     UpdateStockIngredient,
 )
 from app.core.exceptions import (
@@ -54,6 +55,12 @@ class IngredientService:
             raise DuplicateResourceError(
                 resource="Ingrediente", field="nombre", value=ingredient_name
             )
+
+    # -- Measurement Units --------------------------------------------------
+
+    def list_measurement_units(self) -> list[MeasurementUnitPublic]:
+        units = self._session.exec(select(MeasurementUnit)).all()
+        return [MeasurementUnitPublic.model_validate(u) for u in units]
 
     # -- Create --------------------------------------------------
 
