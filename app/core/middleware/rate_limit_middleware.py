@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
 from typing import Awaitable, Callable
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -73,11 +75,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not limiter.is_allowed(client_key):
 
             seconds_until_next_token = int(1 / max(limiter.refill_rate, 0.001))
-
-            raise RateLimitExceededError(
+            exc = RateLimitExceededError(
                 retry_after=seconds_until_next_token,
                 limit=int(limiter.capacity),
                 remaining=0,
+            )
+
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "error": {
+                        "code": exc.code,
+                        "message": exc.message,
+                        "request_id": None,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "retry_after": exc.retry_after,
+                    }
+                },
+                headers={
+                    "Retry-After": str(seconds_until_next_token),
+                    "X-RateLimit-Limit": str(exc.limit),
+                    "X-RateLimit-Remaining": str(exc.remaining),
+                },
             )
 
         response = await call_next(request)
