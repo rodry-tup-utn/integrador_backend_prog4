@@ -86,7 +86,9 @@ class OrderService:
     def _check_payment_method(self, uow: OrderUnitOfWork, payload_code: str):
         payload = uow.payment_methods.get_by_code(payload_code)
         if not payload:
-            raise ResourceNotFoundError(resource="Método de pago", identifier=payload_code)
+            raise ResourceNotFoundError(
+                resource="Método de pago", identifier=payload_code
+            )
         if not payload.available:
             raise BusinessRuleError("Método de pago no disponible")
         return payload
@@ -182,7 +184,10 @@ class OrderService:
             order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
             result = self._order_to_detail(order_detail)  # type: ignore
 
-        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_CREATED)  # type: ignore
+            order_id = order.id
+            state_code = state.code
+
+        await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_CREATED)  # type: ignore
         return result
 
     def get_by_id(self, order_id: int, user_id: int) -> OrderDetailPublic:
@@ -252,7 +257,10 @@ class OrderService:
 
             result = self._order_to_detail(order_detail)  # type: ignore
 
-        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+            order_id = order.id  # type: ignore
+            state_code = state.code
+
+        await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_UPDATED)  # type: ignore
         return result
 
     async def change_state(
@@ -310,7 +318,10 @@ class OrderService:
 
             result = self._order_to_detail(order_detail)  # type: ignore
 
-        await self._emit_ws_events(order.id, new_state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+            order_id = order.id  # type: ignore
+            state_code = new_state.code
+
+        await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_UPDATED)  # type: ignore
         return result
 
     async def cancel_by_staff(self, order_id: int, reason: str) -> OrderDetailPublic:
@@ -343,7 +354,10 @@ class OrderService:
 
             result = self._order_to_detail(order_detail)  # type: ignore
 
-        await self._emit_ws_events(order.id, state.code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+            order_id = order.id  # type: ignore
+            state_code = state.code
+
+        await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_UPDATED)  # type: ignore
         return result
 
     def soft_delete(self, order_id: int):

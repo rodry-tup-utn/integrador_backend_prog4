@@ -14,10 +14,13 @@ from app.modules.user.router import admin_router as admin_user_router
 from app.modules.user.router import public_router as public_user_router
 from app.modules.user.router import user_router
 from app.modules.auth.router import router as auth_router
+from app.modules.estadisticas.router import router as estadisticas_router
 from app.modules.order.router import user_router as user_order_router
 from app.modules.order.router import admin_router as admin_order_router
 from app.modules.order.router import orders_router
 from app.modules.websocket.router import router as ws_router
+from app.modules.payments.router import router as public_payment_router
+from app.modules.payments.router import admin_router as admin_payment_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.exceptions import register_exception_handlers
 from app.core.middleware import LoggingMiddleware, TimingMiddleware, RateLimitMiddleware
@@ -54,10 +57,13 @@ app.include_router(product_ingredient_router)
 app.include_router(admin_user_router)
 app.include_router(public_user_router)
 app.include_router(auth_router)
+app.include_router(estadisticas_router)
 app.include_router(user_router)
 app.include_router(user_order_router)
 app.include_router(admin_order_router)
 app.include_router(orders_router)
+app.include_router(public_payment_router)
+app.include_router(admin_payment_router)
 app.include_router(ws_router)
 
 app.add_middleware(

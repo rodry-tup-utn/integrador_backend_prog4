@@ -35,3 +35,14 @@ def login_for_access_token(
         secure=True,
     )
     return {"message": "Login exitoso. Sesión iniciada"}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        secure=True,
+        httponly=True,
+        samesite="none" if settings.environment == "production" else "lax",
+    )
+    return {"message": "Logout exitoso"}

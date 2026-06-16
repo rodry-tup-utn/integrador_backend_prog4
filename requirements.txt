@@ -8,3 +8,6 @@ sqlalchemy2-stubs
 pyjwt
 passlib[bcrypt]
 bcrypt==4.0.1
+pytest==8.3.4
+pytest-asyncio==0.24.0
+mercadopago

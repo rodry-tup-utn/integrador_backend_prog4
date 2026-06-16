@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     rate_limit_auth_per_minute: float = 0.333
     environment: str = "development"
     cors_allowed_origins: str = "http://localhost:5173"
+    admin_email: str = "admin@admin.com"
+    admin_pass: str = "admin1234"
 
     @property
     def CORS_ORIGINS(self) -> list[str]:
