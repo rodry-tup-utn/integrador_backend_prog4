@@ -5,7 +5,7 @@ from app.modules.user.models import Role, User, UserRoleLink, Address
 from app.modules.product_category.models import ProductCategoryLink
 from app.modules.product_ingredient.models import ProductIngredient
 from app.modules.product.models import Product
-from app.modules.ingredient.models import Ingredient
+from app.modules.ingredient.models import Ingredient, MeasurementUnit
 from datetime import datetime, timezone
 from app.modules.category.models import Category
 from app.modules.order.models import StateOrder, PaymentMethod
@@ -283,6 +283,15 @@ ORDER_STATES = [
     },
 ]
 
+MEASUREMENT_UNITS = [
+    {"code": "KILOGRAM", "name": "Kilogramo", "symbol": "kg", "unit_type": "weight"},
+    {"code": "GRAM", "name": "Gramo", "symbol": "g", "unit_type": "weight"},
+    {"code": "LITER", "name": "Litro", "symbol": "L", "unit_type": "volume"},
+    {"code": "MILILITER", "name": "Mililitro", "symbol": "ml", "unit_type": "volume"},
+    {"code": "UNIT", "name": "Unidad", "symbol": "ud", "unit_type": "countable"},
+    {"code": "PORTION", "name": "Porción", "symbol": "porciones", "unit_type": "countable"},
+]
+
 PAYMENT_METHODS = [
     {
         "code": "MERCADOPAGO",
@@ -444,6 +453,17 @@ def run() -> None:
 
                 session.add(state)
                 logger.info("Seed: estado %s creado", state.code)
+
+        for unit in MEASUREMENT_UNITS:
+            existing = session.exec(
+                select(MeasurementUnit).where(
+                    MeasurementUnit.code == unit["code"]
+                )
+            ).first()
+
+            if not existing:
+                session.add(MeasurementUnit(**unit))  # type: ignore
+                logger.info("Seed: unidad de medida %s creada", unit["code"])
 
         for payment in PAYMENT_METHODS:
             existing = session.exec(
