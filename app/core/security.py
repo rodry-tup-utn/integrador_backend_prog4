@@ -1,4 +1,6 @@
 import jwt
+import secrets
+import hashlib
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -29,3 +31,11 @@ def create_access_token(payload: JWTPayload) -> str:
         to_encode, settings.secret_key, algorithm=settings.algorithm
     )
     return encoded_jwt
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()

@@ -38,12 +38,10 @@ class CategoryRepository(BaseRepository[Category]):
             statement = statement.where(col(Category.deleted_at).is_(None))
         return self.session.exec(statement).all()
 
-    def get_all_active_no_paged(self) -> Sequence[Category]:
-        statement = (
-            select(Category)
-            .where(col(Category.deleted_at).is_(None))
-            .order_by(func.lower(Category.name))
-        )
+    def get_all_no_paged(self, only_active: bool = True) -> Sequence[Category]:
+        statement = select(Category).order_by(func.lower(Category.name))
+        if only_active:
+            statement = statement.where(col(Category.deleted_at).is_(None))
         return self.session.exec(statement).all()
 
     def get_all_root(self, offset: int = 0, limit: int = 20) -> Sequence[Category]:

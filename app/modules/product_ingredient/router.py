@@ -11,6 +11,7 @@ from app.modules.product_ingredient.schemas import (
     ProductWithIngredients,
     ProductIngredientBatchCreate,
 )
+from app.modules.auth.dependencies import require_role
 
 
 def get_service(session: Session = Depends(get_session)) -> ProductIngredientService:
@@ -21,6 +22,15 @@ router = APIRouter(
     prefix="/product/{product_id}/ingredient", tags=["Public - Producto Ingredientes"]
 )
 
+stock_router = APIRouter(
+    prefix="/stock/product/{product_id}/ingredient",
+    tags=["Admin - Product Ingredient"],
+    dependencies=[Depends(require_role(["ADMIN", "STOCK"]))],
+)
+
+
+# -- Public routes (read-only) --
+
 
 @router.get("/", response_model=ProductWithIngredients)
 def get_product_with_ingredients(
@@ -30,7 +40,19 @@ def get_product_with_ingredients(
     return svc.get_product_with_ingredients(product_id)
 
 
-@router.post("/batch", response_model=ProductWithIngredients, status_code=201)
+# -- Admin routes (write operations) --
+
+
+@stock_router.patch("/", response_model=ProductWithIngredients)
+def update_ingredients_batch(
+    product_id: int,
+    data: ProductIngredientBatchCreate,
+    svc: ProductIngredientService = Depends(get_service),
+):
+    return svc.update_relations_batch(product_id, data)
+
+
+@stock_router.post("/batch", response_model=ProductWithIngredients, status_code=201)
 def add_ingredients_batch(
     product_id: Annotated[int, Path(ge=1)],
     data: ProductIngredientBatchCreate,
@@ -39,7 +61,7 @@ def add_ingredients_batch(
     return svc.add_ingredients_batch(product_id, data)
 
 
-@router.post(
+@stock_router.post(
     "/{ingredient_id}", response_model=ProductIngredientPublic, status_code=201
 )
 def add_ingredient(
@@ -51,7 +73,7 @@ def add_ingredient(
     return svc.add_ingredient(product_id, ingredient_id, data)
 
 
-@router.patch("/{ingredient_id}", response_model=ProductIngredientPublic)
+@stock_router.patch("/{ingredient_id}", response_model=ProductIngredientPublic)
 def update_ingredient(
     product_id: Annotated[int, Path(ge=1)],
     ingredient_id: Annotated[int, Path(ge=1)],
@@ -61,7 +83,7 @@ def update_ingredient(
     return svc.update_relation(product_id, ingredient_id, data)
 
 
-@router.delete("/{ingredient_id}", status_code=204)
+@stock_router.delete("/{ingredient_id}", status_code=204)
 def remove_ingredient(
     product_id: Annotated[int, Path(ge=1)],
     ingredient_id: Annotated[int, Path(ge=1)],

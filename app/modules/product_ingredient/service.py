@@ -108,7 +108,7 @@ class ProductIngredientService:
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
                     quantity_ingredient=rel.quantity_ingredient,
-                    measurement_unit=rel.ingredient.measurement_unit,
+                    measurement_unit_code=rel.ingredient.measurement_unit_code,
                 )
                 for rel in relations
                 if rel.ingredient
@@ -142,15 +142,67 @@ class ProductIngredientService:
 
             return ProductIngredientPublic.model_validate(relation)
 
+    def update_relations_batch(
+        self, product_id: int, data: ProductIngredientBatchCreate
+    ) -> ProductWithIngredients:
+        with ProductIngredientUnitOfWork(self._session) as uow:
+            product = self._get_active_product_or_404(uow, product_id)
+            self._assert_product_is_manufactured(product)
+
+            ingredient_ids = [i.ingredient_id for i in data.ingredients]
+            found = uow.ingredientRepo.get_active_by_ids(ingredient_ids)
+            found_ids = {i.id for i in found}
+            missing = set(ingredient_ids) - found_ids
+            if missing:
+                raise ResourceNotFoundError(
+                    message=f"Ingredientes no encontrados: {missing}"
+                )
+
+            current = {
+                r.ingredient_id: r
+                for r in uow.relationRepo.get_ingredients_by_product(product_id)
+            }
+
+            for item in data.ingredients:
+                if item.ingredient_id in current:
+                    rel = current[item.ingredient_id]
+                    rel.quantity_ingredient = item.quantity_ingredient
+                    rel.is_removable = item.is_removable
+                else:
+                    rel = ProductIngredient(
+                        product_id=product_id,
+                        ingredient_id=item.ingredient_id,
+                        is_removable=item.is_removable,
+                        quantity_ingredient=item.quantity_ingredient,
+                    )
+                uow.relationRepo.add(rel)
+
+            all_relations = uow.relationRepo.get_ingredients_by_product(product_id)
+            ingredients = [
+                IngredientInProduct(
+                    ingredient_id=rel.ingredient.id,
+                    name=rel.ingredient.name,
+                    description=rel.ingredient.description,
+                    is_removable=rel.is_removable,
+                    quantity_ingredient=rel.quantity_ingredient,
+                    measurement_unit_code=rel.ingredient.measurement_unit_code,
+                )
+                for rel in all_relations
+                if rel.ingredient
+            ]
+
+            return ProductWithIngredients(
+                product_id=product_id,
+                name=product.name,
+                ingredients=ingredients,
+            )
+
     # -- Remove ingredient from product --------------------------------------------------
 
     def remove_ingredient(self, product_id: int, ingredient_id: int) -> None:
         with ProductIngredientUnitOfWork(self._session) as uow:
             relation = self._get_relation_or_404(uow, product_id, ingredient_id)
-            if not relation.is_removable:
-                raise BusinessRuleError(
-                    "No puede eliminarse un ingrediente marcado como 'no removible'",
-                )
+
             uow.relationRepo.remove(relation)
 
     def add_ingredients_batch(
@@ -198,7 +250,7 @@ class ProductIngredientService:
                     description=rel.ingredient.description,
                     is_removable=rel.is_removable,
                     quantity_ingredient=rel.quantity_ingredient,
-                    measurement_unit=rel.ingredient.measurement_unit,
+                    measurement_unit_code=rel.ingredient.measurement_unit_code,
                 )
                 for rel in all_relations
                 if rel.ingredient

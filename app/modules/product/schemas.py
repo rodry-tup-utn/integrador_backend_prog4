@@ -12,6 +12,7 @@ class ProductCreate(SQLModel):
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
     stock: int | None = Field(ge=0, default=None)
+    sales_unit: str | None = Field(default=None, max_length=20)
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int = Field(ge=1)
     type: ProductType = Field(default=ProductType.FINAL)
@@ -37,6 +38,7 @@ class ProductPublic(SQLModel):
     id: int
     base_price: Decimal
     stock: int | None
+    sales_unit: str | None = None
     name: str
     description: str | None
     images_url: str | None
@@ -79,6 +81,7 @@ class ProductUpdate(SQLModel):
     images_url: str | None = Field(default=None, max_length=255)
     category_id: int | None = Field(default=None, ge=1)
     stock: int | None = Field(ge=0, default=None)
+    sales_unit: str | None = Field(default=None, max_length=20)
 
 
 class UpdateType(SQLModel):

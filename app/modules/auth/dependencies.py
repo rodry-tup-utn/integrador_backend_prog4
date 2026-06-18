@@ -91,3 +91,13 @@ def require_role(allowed_roles: list[str]):
         )
 
     return role_checker  # Retorna la dependencia configurada
+
+
+def get_refresh_token_from_cookie(request: Request) -> str:
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise AuthenticationError(
+            message="Refresh token no encontrado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token

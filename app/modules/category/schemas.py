@@ -33,6 +33,15 @@ class CategoryNode(SQLModel):
     children: list[CategoryNode]
 
 
+class CategoryNodePrivate(CategoryNode):
+    description: str | None
+    image_url: str | None
+    created_at: datetime
+    updated_at: datetime | None
+    deleted_at: datetime | None
+    children: list[CategoryNodePrivate]
+
+
 class CategoryParentUpdate(SQLModel):
     parent_id: int | None
 
