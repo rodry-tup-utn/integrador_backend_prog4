@@ -23,7 +23,9 @@ class TestLogin:
         )
         assert resp.status_code == status.HTTP_200_OK
         assert "access_token" in resp.cookies
+        assert "refresh_token" in resp.cookies
         assert resp.cookies["access_token"] is not None
+        assert resp.cookies["refresh_token"] is not None
         assert resp.json() == {"message": "Login exitoso. Sesión iniciada"}
 
     def test_login_invalid_credentials(self, client, normal_user_data):
