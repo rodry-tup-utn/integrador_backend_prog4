@@ -10,6 +10,9 @@ from app.modules.product.router import stock_router as stock_product_router
 from app.modules.ingredient.router import router as public_ingredient_router
 from app.modules.ingredient.router import admin_router as admin_ingredient_router
 from app.modules.product_ingredient.router import router as product_ingredient_router
+from app.modules.product_ingredient.router import (
+    stock_router as stock_product_ingredient_router,
+)
 from app.modules.user.router import admin_router as admin_user_router
 from app.modules.user.router import public_router as public_user_router
 from app.modules.user.router import user_router
@@ -57,6 +60,7 @@ app.include_router(stock_product_router)
 app.include_router(public_ingredient_router)
 app.include_router(admin_ingredient_router)
 app.include_router(product_ingredient_router)
+app.include_router(stock_product_ingredient_router)
 app.include_router(admin_user_router)
 app.include_router(public_user_router)
 app.include_router(auth_router)
