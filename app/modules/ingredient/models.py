@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.modules.product.models import Product
     from app.modules.product_ingredient.models import ProductIngredient
 
 
@@ -17,6 +18,8 @@ class MeasurementUnit(SQLModel, table=True):
     name: str = Field(max_length=50, unique=True, nullable=False)
     symbol: str = Field(max_length=10, unique=True, nullable=False)
     unit_type: str = Field(max_length=20, nullable=False)
+
+    products: list["Product"] = Relationship(back_populates="measurement_unit")
 
 
 class Ingredient(SQLModel, table=True):

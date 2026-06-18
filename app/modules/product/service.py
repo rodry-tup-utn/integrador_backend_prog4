@@ -16,6 +16,7 @@ from app.modules.product.schemas import (
     UpdateAbailability,
     UpdateType,
 )
+from app.modules.ingredient.models import MeasurementUnit
 from app.modules.product_ingredient.models import ProductIngredient
 from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
 from app.core.exceptions import (
@@ -23,7 +24,7 @@ from app.core.exceptions import (
     BusinessRuleError,
     ResourceNotFoundError,
 )
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.modules.product.unit_of_work import ProductUnitOfWork
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -63,6 +64,14 @@ class ProductService:
         if uow.products.get_by_name(product_name):
             raise DuplicateResourceError(
                 resource="Producto", field="nombre", value=product_name
+            )
+
+    def _assert_sales_unit_exists(self, sales_unit: str) -> None:
+        stmt = select(MeasurementUnit).where(MeasurementUnit.code == sales_unit)
+        unit = self._session.exec(stmt).first()
+        if not unit:
+            raise ResourceNotFoundError(
+                resource="Unidad de medida", identifier=sales_unit
             )
 
     def _get_details_or_404(
@@ -214,6 +223,9 @@ class ProductService:
             if data.type == ProductType.MANUFACTURED:
                 data.stock = None
 
+            if data.sales_unit is not None:
+                self._assert_sales_unit_exists(data.sales_unit)
+
             product = Product.model_validate(data.model_dump(exclude={"ingredients"}))
 
             uow.products.add(product)
@@ -299,6 +311,9 @@ class ProductService:
                     )
 
             exclude_fields = {"category_id"}
+
+            if data.sales_unit is not None:
+                self._assert_sales_unit_exists(data.sales_unit)
 
             # no permitir cambiar stock a productos manufacturados
             if data.stock is not None and product.type == ProductType.MANUFACTURED:

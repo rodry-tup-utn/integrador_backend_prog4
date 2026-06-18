@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import Column, DateTime
 from app.modules.order_item.models import OrderItem
 from enum import StrEnum
+from app.modules.ingredient.models import MeasurementUnit
 
 
 class ProductType(StrEnum):
@@ -25,9 +26,14 @@ class Product(SQLModel, table=True):
     description: str | None = Field(default=None, max_length=255)
     base_price: Decimal = Field(gt=0)
     stock: int | None = Field(ge=0, default=None)
+    sales_unit: str | None = Field(
+        default=None, foreign_key="measurement_unit.code", max_length=20
+    )
     images_url: str | None = Field(default=None)
     available: bool = Field(default=True)
     type: ProductType
+
+    measurement_unit: MeasurementUnit | None = Relationship(back_populates="products")
 
     category_links: list["ProductCategoryLink"] = Relationship(back_populates="product")
     ingredients: list["ProductIngredient"] = Relationship(back_populates="product")
