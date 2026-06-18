@@ -289,7 +289,12 @@ MEASUREMENT_UNITS = [
     {"code": "LITER", "name": "Litro", "symbol": "L", "unit_type": "volume"},
     {"code": "MILILITER", "name": "Mililitro", "symbol": "ml", "unit_type": "volume"},
     {"code": "UNIT", "name": "Unidad", "symbol": "ud", "unit_type": "countable"},
-    {"code": "PORTION", "name": "Porción", "symbol": "porciones", "unit_type": "countable"},
+    {
+        "code": "PORTION",
+        "name": "Porción",
+        "symbol": "porciones",
+        "unit_type": "countable",
+    },
 ]
 
 PAYMENT_METHODS = [
@@ -456,9 +461,7 @@ def run() -> None:
 
         for unit in MEASUREMENT_UNITS:
             existing = session.exec(
-                select(MeasurementUnit).where(
-                    MeasurementUnit.code == unit["code"]
-                )
+                select(MeasurementUnit).where(MeasurementUnit.code == unit["code"])
             ).first()
 
             if not existing:
