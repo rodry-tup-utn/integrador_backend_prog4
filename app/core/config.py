@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     secret_key: str = "secret-key-dev"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
     slow_request_threshold_ms: int = 500
     rate_limit_default_burst: int = 10
     rate_limit_default_per_minute: int = 60
