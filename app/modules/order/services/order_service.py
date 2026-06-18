@@ -190,6 +190,62 @@ class OrderService:
         await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_CREATED)  # type: ignore
         return result
 
+    async def confirm_by_client(self, user_id, order_id) -> OrderDetailPublic:
+        with OrderUnitOfWork(self._session) as uow:
+            order = self._get_or_404(uow, order_id)
+            if order.user_id != user_id:
+                raise AuthorizationError(
+                    "No puedes confirmar una orden que no te pertenece"
+                )
+            if order.state_code != OrderStateService.PENDING:
+                raise BusinessRuleError(
+                    "Solo puedes confirmar ordenes en estado pendiente"
+                )
+
+            old_state = order.state_code
+            new_state = OrderStateService.CONFIRMED
+
+            product_map = self.stock.get_product_map(
+                uow, [i.product_id for i in order.order_items]
+            )
+
+            final_items, manufactured_items = self.stock.validate_and_split_items(
+                uow, order.order_items, product_map
+            )
+
+            if final_items:
+                uow.products.decrease_stock_batch(
+                    [(i.product_id, i.quantity) for i in final_items]
+                )
+            if manufactured_items:
+                needs = self.stock.compute_ingredient_needs(
+                    uow,
+                    [
+                        (i.product_id, i.quantity, i.personalization)
+                        for i in manufactured_items
+                    ],
+                )
+                uow.ingredients.decrease_stock_batch(list(needs.items()))
+
+            uow.orders.update_state(order, new_state)
+
+            uow.historials.create_entry(
+                order_id=order.id,  # type: ignore
+                state_from_code=str(old_state),
+                state_to_code=str(new_state),
+                reason="Confirmado por el cliente - Pago en efectivo",
+            )
+
+            self._update_order(uow, order)
+            order_detail = uow.orders.get_by_id_with_details(order.id)  # type: ignore
+            result = self._order_to_detail(order_detail)  # type: ignore
+
+            order_id = order.id  # type: ignore
+            state_code = new_state
+
+        await self._emit_ws_events(order_id, state_code, WS_EVENT_ORDER_UPDATED)  # type: ignore
+        return result
+
     def get_by_id(self, order_id: int, user_id: int) -> OrderDetailPublic:
         with OrderUnitOfWork(self._session) as uow:
             order = self._get_or_404(uow, order_id)
@@ -335,6 +391,7 @@ class OrderService:
                 raise BusinessRuleError("El pedido ya está cancelado")
 
             old_state = order.state_code
+
             uow.orders.update_state(order, state.code)
 
             uow.historials.create_entry(
