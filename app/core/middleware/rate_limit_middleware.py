@@ -20,7 +20,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     _instances: list["RateLimitMiddleware"] = []
 
     # Paths que matchean el auth_limiter (más estricto).
-    AUTH_PATHS: tuple[str, ...] = ("/auth/", "/profile/password")
+    AUTH_PATHS: tuple[str, ...] = ("/auth/login",)
 
     EXCLUDED_PATHS: set[str] = {
         "/health",

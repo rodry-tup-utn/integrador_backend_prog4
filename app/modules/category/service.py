@@ -6,6 +6,7 @@ from app.modules.category.schemas import (
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
+    CategoryNodePrivate,
     CategoryPrivate,
     CategoryListPrivate,
     CategoryPath,
@@ -110,7 +111,7 @@ class CategoryService:
 
             self._get_active_or_404(uow, new_parent_id)
 
-            categories = list(uow.categories.get_all_active_no_paged())
+            categories = list(uow.categories.get_all_no_paged(only_active=True))
             category_map = self._build_category_map(categories)
 
             if self._would_create_cycle(category, new_parent_id, category_map):
@@ -249,7 +250,7 @@ class CategoryService:
 
     def _get_category_chain(self, uow: CategoryUnitOfWork, child_id: int) -> list[int]:
         category = self._get_active_or_404(uow, child_id)
-        categories_list = list(uow.categories.get_all_active_no_paged())
+        categories_list = list(uow.categories.get_all_no_paged(only_active=True))
         category_map = self._build_category_map(categories_list)
         parents_chain_id = self._build_parent_chain(category, category_map)
 
@@ -297,7 +298,8 @@ class CategoryService:
         current_depth: int,
         max_depth: int,
         visited: set[int],
-    ) -> CategoryNode:
+        include_deleted: bool = False,
+    ) -> CategoryNodePrivate:
 
         if category.id in visited:
             raise BusinessRuleError("Ciclo detectado en la base de datos")
@@ -308,6 +310,8 @@ class CategoryService:
 
         if current_depth < max_depth and has_children:
             hijos_raw = tree_map.get(category.id, [])
+            if not include_deleted:
+                hijos_raw = [h for h in hijos_raw if h.deleted_at is None]
             hijos_formateados = [
                 self._build_node_tree_recursive(
                     hijo,
@@ -316,15 +320,20 @@ class CategoryService:
                     current_depth + 1,
                     max_depth,
                     visited.copy(),
+                    include_deleted,
                 )
                 for hijo in hijos_raw
-                if hijo.deleted_at is None
             ]
 
-        return CategoryNode(
+        return CategoryNodePrivate(
             id=category.id,  # type: ignore
             name=category.name,
             parent_id=category.parent_id,
+            description=category.description,
+            image_url=category.image_url,
+            created_at=category.created_at,
+            updated_at=category.updated_at,
+            deleted_at=category.deleted_at,
             has_children=has_children,
             children=hijos_formateados,
         )
@@ -334,28 +343,28 @@ class CategoryService:
     ) -> list[str]:
         chain_ids = self._get_category_chain(uow, category_id)
 
-        categories = {c.id: c.name for c in uow.categories.get_all_active_no_paged()}
+        categories = {c.id: c.name for c in uow.categories.get_all_no_paged(only_active=True)}
         result = reversed([categories[id] for id in chain_ids if id in categories])
 
         return list(result)
 
-    def get_node_tree_from_root(self, max_depth: int = 2) -> list[CategoryNode]:
+    def get_node_tree_from_root(self, max_depth: int = 2, include_deleted: bool = False) -> list[CategoryNodePrivate]:
         with CategoryUnitOfWork(self._session) as uow:
-            categorias = list(uow.categories.get_all_active_no_paged())
+            categorias = list(uow.categories.get_all_no_paged(only_active=not include_deleted))
             tree_map = self._build_tree_map(categorias)
             has_children_set = self._build_has_children_set(categorias)
             raices = [c for c in categorias if c.parent_id is None]
 
             return [
                 self._build_node_tree_recursive(
-                    r, tree_map, has_children_set, 0, max_depth, set()
+                    r, tree_map, has_children_set, 0, max_depth, set(), include_deleted
                 )
                 for r in raices
             ]
 
-    def get_node_tree_from_id(self, root_id: int, max_depth: int = 2) -> CategoryNode:
+    def get_node_tree_from_id(self, root_id: int, max_depth: int = 2) -> CategoryNodePrivate:
         with CategoryUnitOfWork(self._session) as uow:
-            categorias = list(uow.categories.get_all_active_no_paged())
+            categorias = list(uow.categories.get_all_no_paged(only_active=True))
             root = next((c for c in categorias if c.id == root_id), None)
 
             if not root:
@@ -370,9 +379,9 @@ class CategoryService:
 
     def get_node_children_from_id(
         self, parent_id: int, max_depth: int = 2
-    ) -> list[CategoryNode]:
+    ) -> list[CategoryNodePrivate]:
         with CategoryUnitOfWork(self._session) as uow:
-            categorias = list(uow.categories.get_all_active_no_paged())
+            categorias = list(uow.categories.get_all_no_paged(only_active=True))
             parent = next((c for c in categorias if c.id == parent_id), None)
 
             if not parent:

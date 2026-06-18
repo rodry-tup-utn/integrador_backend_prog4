@@ -78,6 +78,15 @@ async def cancel_my_order(
     return await svc.cancel(id, user_data.id)
 
 
+@user_router.patch("/{order_id}/confirm", response_model=OrderDetailPublic)
+async def cofirm_my_order(
+    order_id: Annotated[int, Path(ge=1)],
+    user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
+    svc: Annotated[OrderService, Depends(get_order_service)],
+):
+    return await svc.confirm_by_client(user_data.id, order_id)
+
+
 @admin_router.delete("/{id}/delete", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete(
     id: Annotated[int, Path(ge=1)],

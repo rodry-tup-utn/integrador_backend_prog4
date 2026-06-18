@@ -9,3 +9,8 @@ class JWTPayload(BaseModel):
     exp: Optional[int] = None
 
     model_config = ConfigDict(extra="ignore")
+
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str

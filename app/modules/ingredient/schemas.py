@@ -2,7 +2,13 @@ from sqlmodel import SQLModel, Field
 from datetime import datetime
 from typing import List, Literal
 from decimal import Decimal
-from app.modules.ingredient.models import MeasurementUnit
+
+
+class MeasurementUnitPublic(SQLModel):
+    code: str
+    name: str
+    symbol: str
+    unit_type: str
 
 
 class IngredientCreate(SQLModel):
@@ -10,7 +16,7 @@ class IngredientCreate(SQLModel):
     description: str | None = Field(default=None, min_length=5, max_length=500)
     is_allergen: bool = Field(default=False)
     stock: Decimal = Field(default=0, ge=0)
-    measurement_unit: MeasurementUnit
+    measurement_unit_code: str = Field(max_length=20)
 
 
 class IngredientPublic(SQLModel):
@@ -22,7 +28,7 @@ class IngredientPublic(SQLModel):
 
 class IngredientPrivate(IngredientPublic):
     stock: Decimal
-    measurement_unit: MeasurementUnit
+    measurement_unit_code: str
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
@@ -32,7 +38,7 @@ class IngredientUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     description: str | None = Field(default=None, min_length=5, max_length=500)
     is_allergen: bool | None = Field(default=None)
-    measurement_unit: MeasurementUnit | None = Field(default=None)
+    measurement_unit_code: str | None = Field(default=None, max_length=20)
     stock: Decimal | None = Field(ge=0, default=None)
 
 

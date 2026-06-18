@@ -1,7 +1,6 @@
 from sqlmodel import SQLModel, Field
 from typing import List
 from decimal import Decimal
-from app.modules.ingredient.models import MeasurementUnit
 
 
 class ProductIngredientCreate(SQLModel):
@@ -28,7 +27,7 @@ class IngredientInProduct(SQLModel):
     description: str | None
     is_removable: bool
     quantity_ingredient: Decimal
-    measurement_unit: MeasurementUnit
+    measurement_unit_code: str
 
 
 # Para mostrar un producto con su lista de ingredientes

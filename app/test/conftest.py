@@ -21,6 +21,7 @@ from app.core.database import get_session
 from app.core.middleware import RateLimitMiddleware
 from app.core.security import get_password_hash
 from app.main import app
+from app.modules.ingredient.models import MeasurementUnit
 from app.modules.product.models import Product, ProductType
 from app.modules.user.models import User, Role, UserRoleLink, Address
 from app.modules.order.models import Order, StateOrder, PaymentMethod, OrderHistorial
@@ -135,6 +136,22 @@ def _seed_reference_tables(session: Session) -> None:
             select(PaymentMethod).where(PaymentMethod.code == pm_data["code"])
         ).first():
             session.add(PaymentMethod(**pm_data))
+
+    for mu_data in [
+        {"code": "LITER", "name": "Litro", "symbol": "L", "unit_type": "volume"},
+        {"code": "GRAM", "name": "Gramo", "symbol": "g", "unit_type": "weight"},
+        {"code": "UNIT", "name": "Unidad", "symbol": "ud", "unit_type": "countable"},
+        {
+            "code": "PORTION",
+            "name": "Porción",
+            "symbol": "porciones",
+            "unit_type": "countable",
+        },
+    ]:
+        if not session.exec(
+            select(MeasurementUnit).where(MeasurementUnit.code == mu_data["code"])
+        ).first():
+            session.add(MeasurementUnit(**mu_data))  # type: ignore
 
     if not session.exec(select(Category).where(Category.name == "Comidas")).first():
         session.add(Category(name="Comidas", description="Categoria raiz para tests"))
@@ -293,6 +310,7 @@ def producto_factory_fixture(db_session: Session) -> Callable:
         type: ProductType = ProductType.FINAL,
         available: bool = True,
         category_id: int | None = None,
+        sales_unit: str | None = None,
     ) -> Product:
         product = Product(
             name=name,
@@ -300,6 +318,7 @@ def producto_factory_fixture(db_session: Session) -> Callable:
             stock=stock,
             type=type,
             available=available,
+            sales_unit=sales_unit,
         )
         db_session.add(product)
         db_session.flush()
@@ -409,6 +428,7 @@ def producto_payload_fixture() -> dict:
         "stock": 10,
         "category_id": 1,
         "type": "FINAL",
+        "sales_unit": "UNIT",
     }
 
 
