@@ -49,10 +49,9 @@ class StockService:
         for ing_id, required in needs.items():
             ing = ingredients.get(ing_id)
             if not ing or (ing.stock is not None and ing.stock < required):
-                name = ing.name if ing else str(ing_id)
                 raise BusinessRuleError(
-                    f"Stock insuficiente del ingrediente '{name}': "
-                    f"necesario {required}",
+                    "Stock insuficiente para completar el pedido. "
+                    "Algunos ingredientes no están disponibles en la cantidad solicitada.",
                 )
 
     def validate_and_split_items(
