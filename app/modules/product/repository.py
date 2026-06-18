@@ -9,6 +9,7 @@ from app.modules.product.schemas import ProductFilters
 from app.modules.product_category.models import ProductCategoryLink
 from app.modules.product_ingredient.models import ProductIngredient
 from app.modules.product.models import ProductType
+from app.modules.ingredient.models import Ingredient
 
 SORT_FIELDS = {"name": Product.name, "base_price": Product.base_price}
 
@@ -188,3 +189,40 @@ class ProductRepository(BaseRepository[Product]):
             Product.type == ProductType.FINAL,
         )
         return set(self.session.exec(stmt).all())
+
+    def get_manufactured_stocks_batch(self, product_ids: list[int]) -> dict[int, int]:
+        if not product_ids:
+            return {}
+
+        stmt = (
+            select(
+                ProductIngredient.product_id,
+                ProductIngredient.quantity_ingredient,
+                Ingredient.stock,
+                col(Ingredient.id).label("ingredient_id"),
+            )
+            .outerjoin(Ingredient, Ingredient.id == ProductIngredient.ingredient_id)
+            .where(col(ProductIngredient.product_id).in_(product_ids))
+        )
+        rows = self.session.exec(stmt).all()
+
+        groups: dict[int, list] = {}
+        for row in rows:
+            groups.setdefault(row.product_id, []).append(row)
+
+        result: dict[int, int] = {}
+        for pid, items in groups.items():
+            min_val: int | None = None
+            for item in items:
+                if (
+                    item.ingredient_id is None
+                    or item.stock is None
+                    or item.quantity_ingredient == 0
+                ):
+                    min_val = 0
+                    break
+                stock_val = int(item.stock // item.quantity_ingredient)
+                min_val = stock_val if min_val is None else min(min_val, stock_val)
+            result[pid] = min_val or 0
+
+        return result
