@@ -218,7 +218,7 @@ class ProductService:
 
             uow.products.add(product)
 
-            categories = list(uow.categories.get_all_active_no_paged())
+            categories = list(uow.categories.get_all_no_paged())
             category_map = self._build_category_map(categories)
             chain_ids = self._build_parent_chain(primary_category, category_map)
 
@@ -235,12 +235,18 @@ class ProductService:
     def list_all_public(self, filters: ProductFilters) -> ProductList:
         with ProductUnitOfWork(self._session) as uow:
             products = uow.products.get_all_active(filters, True)
-            total = uow.products.count_query(
-                filters,
-            )
+            total = uow.products.count_query(filters)
+
+            manufactured_ids = [
+                p.id for p in products if p.type == ProductType.MANUFACTURED
+            ]
+            if manufactured_ids:
+                stocks = uow.products.get_manufactured_stocks_batch(manufactured_ids)  # type: ignore
+                for p in products:
+                    if p.id in stocks:
+                        p.stock = stocks[p.id]
 
             data = [ProductPublic.model_validate(p) for p in products]
-
             result = ProductList(data=data, total=total)
 
         return result
@@ -248,12 +254,18 @@ class ProductService:
     def list_all_admin(self, filters: ProductFilters):
         with ProductUnitOfWork(self._session) as uow:
             products = uow.products.get_all_active(filters, False)
-            total = uow.products.count_query(
-                filters,
-            )
+            total = uow.products.count_query(filters)
+
+            manufactured_ids = [
+                p.id for p in products if p.type == ProductType.MANUFACTURED
+            ]
+            if manufactured_ids:
+                stocks = uow.products.get_manufactured_stocks_batch(manufactured_ids)  # type: ignore
+                for p in products:
+                    if p.id in stocks:
+                        p.stock = stocks[p.id]
 
             data = [ProductAdmin.model_validate(p) for p in products]
-
             result = ProductListAdmin(data=data, total=total)
 
         return result
@@ -278,7 +290,7 @@ class ProductService:
                 ):
                     uow.product_category_link.delete_by_product_id(product_id)
 
-                    categories = list(uow.categories.get_all_active_no_paged())
+                    categories = list(uow.categories.get_all_no_paged())
                     category_map = self._build_category_map(categories)
                     chain_ids = self._build_parent_chain(new_category, category_map)
 
