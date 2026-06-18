@@ -8,6 +8,7 @@ from app.modules.category.schemas import (
     CategoryPublic,
     CategoryUpdate,
     CategoryNode,
+    CategoryNodePrivate,
     CategoryListPrivate,
     CategoryPrivate,
     CategoryPath,
@@ -133,6 +134,14 @@ def list_root(
     svc: CategoryService = Depends(get_category_service),
 ):
     return svc.get_root_categories(offset, limit)
+
+
+@admin_router.get("/nodes/root", response_model=list[CategoryNodePrivate])
+def get_nodes_root_admin(
+    depth: Annotated[int, Query(ge=1, le=10)] = 10,
+    svc: CategoryService = Depends(get_category_service),
+):
+    return svc.get_node_tree_from_root(depth, include_deleted=True)
 
 
 @admin_router.patch("/{id}/parent", response_model=CategoryPrivate)
