@@ -113,7 +113,9 @@ class PaymentService:
     async def _emit_ws_payment_event(self, order_id: int) -> None:
         data = {"order_id": order_id}
         await manager.broadcast_to_order(order_id, WS_EVENT_PAYMENT_APPROVED, data)
-        await manager.broadcast_to_roles(WS_ROLES_TO_NOTIFY, WS_EVENT_PAYMENT_APPROVED, data)
+        await manager.broadcast_to_roles(
+            WS_ROLES_TO_NOTIFY, WS_EVENT_PAYMENT_APPROVED, data
+        )
         logger.info(
             f"WS emitido: {WS_EVENT_PAYMENT_APPROVED} | pedido={order_id} | "
             f"rooms_activas={manager.get_rooms_info()}"
