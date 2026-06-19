@@ -23,4 +23,4 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          exclude_paths: env.example
+          extra_args: --exclude-paths=.env.example

@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, Path, UploadFile, File, status
+from fastapi import APIRouter, Depends, UploadFile, File, status
 from sqlmodel import Session
-from typing import Annotated
 
 from app.modules.uploads.schemas import UploadResponse
 from app.modules.uploads.service import UploadService
@@ -19,40 +18,21 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/product/{id}", response_model=UploadResponse, status_code=status.HTTP_200_OK
-)
-def upload_product_image(
-    id: Annotated[int, Path(ge=1)],
+# ── Standalone ────────────────────────────────────────────────
+
+@router.post("", response_model=UploadResponse, status_code=status.HTTP_200_OK)
+def upload_image(
     file: UploadFile = File(...),
     svc: UploadService = Depends(get_upload_service),
 ):
-    return svc.upload_product_image(id, file)
+    return svc.upload_image(file)
 
 
-@router.delete(
-    "/product/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_product_image(
-    id: Annotated[int, Path(ge=1)], svc: UploadService = Depends(get_upload_service)
-):
-    svc.delete_product_image(id)
-
-
-@router.post(
-    "/category/{id}", response_model=UploadResponse, status_code=status.HTTP_200_OK
-)
-def upload_category_image(
-    id: Annotated[int, Path(ge=1)],
-    file: UploadFile = File(...),
+@router.delete("/{public_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_image(
+    public_id: str,
     svc: UploadService = Depends(get_upload_service),
 ):
-    return svc.upload_category_image(id, file)
+    svc.delete_image(public_id)
 
 
-@router.delete("/category/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category_image(
-    id: Annotated[int, Path(ge=1)], svc: UploadService = Depends(get_upload_service)
-):
-    svc.delete_category_image(id)
