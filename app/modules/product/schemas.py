@@ -13,7 +13,7 @@ class ProductCreate(SQLModel):
     base_price: Decimal = Field(gt=0)
     stock: int | None = Field(ge=0, default=None)
     sales_unit: str | None = Field(default=None, max_length=20)
-    images_url: str | None = Field(default=None, max_length=255)
+    images_url: list[str] | None = Field(default=None)
     category_id: int = Field(ge=1)
     type: ProductType = Field(default=ProductType.FINAL)
     ingredients: list[ProductIngredientBatchItem] = Field(default_factory=list)
@@ -41,7 +41,7 @@ class ProductPublic(SQLModel):
     sales_unit: str | None = None
     name: str
     description: str | None
-    images_url: str | None
+    images_url: list[str] | None
     available: bool
     type: ProductType
 
@@ -78,7 +78,7 @@ class ProductUpdate(SQLModel):
     name: str | None = Field(default=None, max_length=150, min_length=3)
     description: str | None = Field(default=None, max_length=255, min_length=3)
     base_price: Decimal | None = Field(default=None, gt=0)
-    images_url: str | None = Field(default=None, max_length=255)
+    images_url: list[str] | None = Field(default=None)
     category_id: int | None = Field(default=None, ge=1)
     stock: int | None = Field(ge=0, default=None)
     sales_unit: str | None = Field(default=None, max_length=20)

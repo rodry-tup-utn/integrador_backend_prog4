@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from decimal import Decimal
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, JSON
 from app.modules.order_item.models import OrderItem
 from enum import StrEnum
 from app.modules.ingredient.models import MeasurementUnit
@@ -29,7 +29,9 @@ class Product(SQLModel, table=True):
     sales_unit: str | None = Field(
         default=None, foreign_key="measurement_unit.code", max_length=20
     )
-    images_url: str | None = Field(default=None)
+    images_url: list[str] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
     available: bool = Field(default=True)
     type: ProductType
 
