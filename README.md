@@ -10,8 +10,7 @@ Proyecto desarrollado para la materia **Programación IV**
 Carrera: Tecnicatura Universitaria en Programación - UTN FRM
 
 ---
-## Link a video final
-[Link a video] (https://drive.google.com/drive/folders/1ba81BAq61iIyDVPwluYpGlM2iw8nLIxT?usp=drive_link) 
+## Link a video final https://drive.google.com/drive/folders/1ba81BAq61iIyDVPwluYpGlM2iw8nLIxT?usp=drive_link
 
 ---
 ## 🚀 Descripción
