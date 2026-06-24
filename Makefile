@@ -2,7 +2,7 @@ PROJECT_NAME=food-store
 
 init:
 	python3 -m venv .venv
-	.venv/bin/python -m pip install -r requirements.txt
+	.venv/bin/python -m pip install -r requirements.txt --quiet
 	docker compose -p $(PROJECT_NAME) up -d
 
 run:
