@@ -74,6 +74,10 @@ app.include_router(admin_payment_router)
 app.include_router(ws_router)
 app.include_router(upload_router)
 
+app.add_middleware(TimingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(LoggingMiddleware, log_body=False)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -81,6 +85,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(LoggingMiddleware, log_body=False)
-app.add_middleware(TimingMiddleware)
-app.add_middleware(RateLimitMiddleware)

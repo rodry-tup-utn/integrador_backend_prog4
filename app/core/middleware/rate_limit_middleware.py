@@ -87,7 +87,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "error": {
                         "code": exc.code,
                         "message": exc.message,
-                        "request_id": None,
+                        "request_id": getattr(request.state, "request_id", None),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "retry_after": exc.retry_after,
                     }

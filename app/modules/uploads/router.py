@@ -28,7 +28,7 @@ def upload_image(
     return svc.upload_image(file)
 
 
-@router.delete("/{public_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{public_id:path}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_image(
     public_id: str,
     svc: UploadService = Depends(get_upload_service),

@@ -49,12 +49,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         logger.info(
-            "→ %s %s [id=%s] from=%s ua=%s",
+            "→ %s %s [id=%s] from=%s",
             request.method,
             request.url.path,
-            request_id,
+            request_id[:8],
             self._get_client_ip(request),
-            request.headers.get("user-agent", "unknown"),
         )
         try:
             response = await call_next(request)
@@ -65,7 +64,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "✗ %s %s [id=%s] EXCEPTION after %.1fms: %s",
                 request.method,
                 request.url.path,
-                request_id,
+                request_id[:8],
                 duration_ms,
                 repr(exc),
             )
@@ -83,7 +82,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "← %s %s [id=%s] %d in %.1fms",
             request.method,
             request.url.path,
-            request_id,
+            request_id[:8],
             response.status_code,
             duration_ms,
         )
