@@ -14,6 +14,8 @@ from app.modules.product.schemas import (
     UpdateStock,
     UpdateAbailability,
     UpdateType,
+    CalculateStockRequest,
+    CalculateStockResponse,
 )
 from app.core.database import get_session
 from typing import Annotated
@@ -128,6 +130,14 @@ def update_type(
     svc: ProductService = Depends(get_product_service),
 ):
     svc.update_type(id, data)
+
+
+@stock_router.post("/calculate-stock", response_model=CalculateStockResponse)
+def calculate_stock(
+    data: CalculateStockRequest,
+    svc: ProductService = Depends(get_product_service),
+):
+    return CalculateStockResponse(stock=svc.calculate_manufactured_stock(data))
 
 
 @admin_router.patch("/{id}/ingredients")

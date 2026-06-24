@@ -19,6 +19,7 @@ from app.modules.product.schemas import (
 from app.modules.ingredient.models import MeasurementUnit
 from app.modules.product_ingredient.models import ProductIngredient
 from app.modules.product_ingredient.schemas import ProductIngredientBatchItem
+from app.modules.product.schemas import CalculateStockRequest
 from app.core.exceptions import (
     DuplicateResourceError,
     BusinessRuleError,
@@ -214,6 +215,24 @@ class ProductService:
 
         return product.stock  # type: ignore
 
+    def calculate_manufactured_stock(self, data: CalculateStockRequest) -> int:
+        if not data.ingredients:
+            return 0
+
+        with ProductUnitOfWork(self._session) as uow:
+            ids = [i.ingredient_id for i in data.ingredients]
+            ingredients = uow.ingredients.get_active_by_ids(ids)
+            ingredients_map = {i.id: i for i in ingredients}
+
+            stocks = []
+            for item in data.ingredients:
+                ing = ingredients_map.get(item.ingredient_id)
+                if ing is None or ing.stock is None or item.quantity_ingredient == 0:
+                    return 0
+                stocks.append(int(ing.stock // item.quantity_ingredient))
+
+            return min(stocks) if stocks else 0
+
     def create(self, data: ProductCreate) -> ProductPublic:
         with ProductUnitOfWork(self._session) as uow:
             self._assert_name_unique(uow, data.name)
@@ -315,6 +334,11 @@ class ProductService:
             if data.sales_unit is not None:
                 self._assert_sales_unit_exists(data.sales_unit)
 
+            # manejar cambio de tipo (antes de validar stock, así usa el tipo nuevo)
+            if data.type is not None and data.type != product.type:
+                self._update_type(product, data.type, uow)
+                exclude_fields.add("type")
+
             # no permitir cambiar stock a productos manufacturados
             if data.stock is not None and product.type == ProductType.MANUFACTURED:
                 exclude_fields.add("stock")
@@ -406,19 +430,25 @@ class ProductService:
 
             return ProductPublic.model_validate(product)
 
+    def _update_type(
+        self, product: Product, new_type: ProductType, uow: ProductUnitOfWork
+    ) -> None:
+        if new_type == product.type:
+            return
+        if new_type == ProductType.MANUFACTURED:
+            product.stock = None
+        else:
+            product.stock = 0
+            uow.product_ingredient.remove_by_product(product.id)  # type: ignore
+
+        product.type = new_type
+
     def update_type(self, product_id: int, data: UpdateType) -> ProductAdmin:
         with ProductUnitOfWork(self._session) as uow:
             product = self._get_or_404(uow, product_id)
-            if data.type != product.type:
-                if data.type == ProductType.MANUFACTURED:
-                    product.stock = None
-                else:
-                    product.stock = 0
-                    uow.product_ingredient.remove_by_product(product_id)
-
-                product.type = data.type
-                product.updated_at = datetime.now(timezone.utc)
-                uow.products.add(product)
+            self._update_type(product, data.type, uow)
+            product.updated_at = datetime.now(timezone.utc)
+            uow.products.add(product)
 
         return ProductAdmin.model_validate(product)
 
