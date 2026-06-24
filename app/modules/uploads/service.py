@@ -99,5 +99,3 @@ class UploadService:
 
     def delete_image(self, public_id: str) -> None:
         self._delete_from_cloudinary(public_id)
-
-
