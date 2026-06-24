@@ -82,6 +82,7 @@ class ProductUpdate(SQLModel):
     category_id: int | None = Field(default=None, ge=1)
     stock: int | None = Field(ge=0, default=None)
     sales_unit: str | None = Field(default=None, max_length=20)
+    type: ProductType | None = None
 
 
 class UpdateType(SQLModel):
@@ -109,3 +110,16 @@ class UpdateStock(SQLModel):
 
 class UpdateAbailability(SQLModel):
     available: bool
+
+
+class CalculateStockItem(SQLModel):
+    ingredient_id: int
+    quantity_ingredient: Decimal
+
+
+class CalculateStockRequest(SQLModel):
+    ingredients: list[CalculateStockItem]
+
+
+class CalculateStockResponse(SQLModel):
+    stock: int
