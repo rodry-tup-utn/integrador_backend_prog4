@@ -3,6 +3,7 @@ from sqlmodel import Session, select, col
 from app.core.repository import BaseRepository
 from app.modules.user.models import User
 from app.modules.order.models import Order
+from app.modules.order_item.models import OrderItem
 from app.modules.order.schemas import OrderFilters
 from sqlalchemy.orm import selectinload
 from typing import Sequence
@@ -44,7 +45,12 @@ class OrderRepository(BaseRepository["Order"]):
     def get_all_with_filters(
         self, filters: OrderFilters, only_actives: bool = True
     ) -> Sequence[Order]:
-        statement = select(Order).offset(filters.offset).limit(filters.limit)
+        statement = (
+            select(Order)
+            .offset(filters.offset)
+            .limit(filters.limit)
+            .options(selectinload(Order.order_items).selectinload(OrderItem.product))
+        )
 
         if only_actives:
             statement = statement.where(col(Order.deleted_at).is_(None))
