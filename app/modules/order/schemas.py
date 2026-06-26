@@ -7,7 +7,7 @@ from pydantic import Field as PydanticField
 
 
 class OrderCreate(SQLModel):
-    address_id: int = Field(ge=1)
+    address_id: int | None = None
     payment_method_code: str = Field(max_length=20)
     notes: str | None = Field(default=None, max_length=255)
     items: list[OrderItemCreate]
@@ -46,7 +46,7 @@ class OrderHistorialPublic(SQLModel):
 class OrderPublic(SQLModel):
     id: int
     user_id: int
-    address_id: int
+    address_id: int | None
     state_code: str
     payment_method_code: str
     subtotal: Decimal
@@ -54,6 +54,7 @@ class OrderPublic(SQLModel):
     shipping_cost: Decimal
     notes: str | None
     created_at: datetime
+    order_items: list[OrderItemPublic] = Field([])
 
 
 class OrderAdmin(OrderPublic):
@@ -62,9 +63,8 @@ class OrderAdmin(OrderPublic):
 
 class OrderDetailPublic(OrderPublic):
     user: OrderUserPublic
-    address: OrderAddressPublic
+    address: OrderAddressPublic | None
     state: StateOrderPublic
-    items: list[OrderItemPublic]
     historials: list[OrderHistorialPublic]
 
 

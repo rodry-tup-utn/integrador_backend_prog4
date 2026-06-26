@@ -9,14 +9,9 @@ from app.modules.order.schemas import (
     OrderList,
     OrderFilters,
     OrderClientFilters,
-    OrderHistorialPublic,
-    OrderUserPublic,
-    OrderAddressPublic,
-    StateOrderPublic,
     OrderAdmin,
     OrderAdminList,
 )
-from app.modules.order_item.schemas import OrderItemPublic
 from app.modules.product.models import Product
 from app.modules.user.models import Address
 from datetime import datetime, timezone
@@ -94,8 +89,10 @@ class OrderService:
         return payload
 
     def _validate_address(
-        self, uow: OrderUnitOfWork, address_id: int, user_id: int
-    ) -> Address:
+        self, uow: OrderUnitOfWork, address_id: int | None, user_id: int
+    ) -> Address | None:
+        if address_id is None:
+            return None
         address = uow.addresses.get_by_id(address_id)
         if not address or address.deleted_at:
             raise ResourceNotFoundError(resource="Dirección", identifier=address_id)
@@ -104,16 +101,7 @@ class OrderService:
         return address
 
     def _order_to_detail(self, order: Order) -> OrderDetailPublic:
-        return OrderDetailPublic(
-            **OrderPublic.model_validate(order).model_dump(),
-            user=OrderUserPublic.model_validate(order.user),
-            address=OrderAddressPublic.model_validate(order.address),
-            items=[OrderItemPublic.model_validate(i) for i in order.order_items],
-            state=StateOrderPublic.model_validate(order.state),
-            historials=[
-                OrderHistorialPublic.model_validate(h) for h in order.historials
-            ],
-        )
+        return OrderDetailPublic.model_validate(order)
 
     def _update_order(self, uow: OrderUnitOfWork, order: Order):
         now = datetime.now(timezone.utc)
@@ -162,7 +150,7 @@ class OrderService:
 
             order = Order(
                 user_id=user_id,
-                address_id=address.id,  # type: ignore
+                address_id=address.id if address else None,  # type: ignore
                 payment_method_code=payload.code,
                 state_code=state.code,
                 subtotal=subtotal,

@@ -53,6 +53,26 @@ class TestCreateOrder:
         assert len(data["items"]) == 1
         assert data["items"][0]["product_id"] == product.id
 
+    def test_create_order_retiro_local(
+        self, db_session, client, client_headers, producto_factory
+    ):
+        product = producto_factory()
+        user = _get_user(db_session, "cliente_test@test.com")
+
+        resp = client.post(
+            "/order/",
+            json={
+                "address_id": None,
+                "payment_method_code": "EFECTIVO",
+                "items": [{"product_id": product.id, "quantity": 1}],
+            },
+            headers=client_headers,
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        data = resp.json()
+        assert data["state_code"] == "PENDING"
+        assert data["address_id"] is None
+
     def test_create_order_insufficient_stock(
         self, db_session, client, client_headers, producto_factory
     ):
