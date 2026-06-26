@@ -64,7 +64,7 @@ class OrderHistorial(SQLModel, table=True):
 class Order(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
-    address_id: int = Field(foreign_key="address.id")
+    address_id: int | None = Field(default=None, foreign_key="address.id")
     state_code: str = Field(foreign_key="state_order.code")
     payment_method_code: str = Field(foreign_key="payment_method.code")
 
