@@ -5,7 +5,7 @@ from decimal import Decimal
 
 class ProductIngredientCreate(SQLModel):
     is_removable: bool = Field(default=False)
-    quantity_ingredient: Decimal = Field(ge=0)
+    quantity_ingredient: Decimal = Field(gt=0)
 
 
 class ProductIngredientPublic(SQLModel):
@@ -17,7 +17,7 @@ class ProductIngredientPublic(SQLModel):
 
 class ProductIngredientUpdate(SQLModel):
     is_removable: bool | None = None
-    quantity_ingredient: Decimal | None = Field(ge=0, default=None)
+    quantity_ingredient: Decimal | None = Field(gt=0, default=None)
 
 
 # Para mostrar un ingrediente dentro de la lista de un producto
@@ -40,7 +40,7 @@ class ProductWithIngredients(SQLModel):
 class ProductIngredientBatchItem(SQLModel):
     ingredient_id: int
     is_removable: bool = Field(default=False)
-    quantity_ingredient: Decimal = Field(ge=0, default=0)
+    quantity_ingredient: Decimal = Field(gt=0, default=0)
 
 
 class ProductIngredientBatchCreate(SQLModel):
