@@ -29,6 +29,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/openapi.json",
         "/docs",
         "/redoc",
+        "/stock/product/calculate-stock",
     }
 
     def __init__(self, app: ASGIApp) -> None:
