@@ -30,8 +30,18 @@ class DeliveryAdressService:
                 "No tienes permisos para modificar este domicilio",
             )
 
+    def _ensure_one_main_exists(self, uow: UserUnitOfWork, user_id: int) -> None:
+        addresses = uow.delivery_adress.get_by_user_id(user_id, only_actives=True)
+        if addresses and not any(a.is_main for a in addresses):
+            addresses[-1].is_main = True
+
     def create(self, user_id: int, data: AddressCreate) -> AddressRead:
         with UserUnitOfWork(self._session) as uow:
+            is_main = data.is_main or False
+            if uow.delivery_adress.count_active_by_user_id(user_id) == 0:
+                is_main = True
+            if is_main:
+                uow.delivery_adress.unset_main_for_user(user_id)
             address = Address(
                 user_id=user_id,  # type: ignore
                 alias=data.alias,
@@ -42,7 +52,7 @@ class DeliveryAdressService:
                 zip_code=data.zip_code,
                 latitude=data.latitude,
                 longitude=data.longitude,
-                is_main=data.is_main or False,
+                is_main=is_main,
             )
             uow.delivery_adress.add(address)
             result = AddressRead.model_validate(address)
@@ -52,11 +62,14 @@ class DeliveryAdressService:
         with UserUnitOfWork(self._session) as uow:
             address = self._get_active_or_404(uow, id)
             self._verify_ownership(address, user_id)
+            if data.is_main is True:
+                uow.delivery_adress.unset_main_for_user(user_id)
             update_data = data.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(address, field, value)
             address.updated_at = datetime.now(timezone.utc)
             uow.delivery_adress.add(address)
+            self._ensure_one_main_exists(uow, user_id)
             result = AddressRead.model_validate(address)
         return result
 
@@ -65,6 +78,7 @@ class DeliveryAdressService:
             address = self._get_active_or_404(uow, id)
             self._verify_ownership(address, user_id)
             uow.delivery_adress.soft_delete(address)
+            self._ensure_one_main_exists(uow, user_id)
 
     def restore(self, id: int, user_id: int) -> AddressRead:
         with UserUnitOfWork(self._session) as uow:
