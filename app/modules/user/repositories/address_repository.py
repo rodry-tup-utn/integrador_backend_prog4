@@ -1,4 +1,4 @@
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, update, func
 from app.modules.user.models import Address
 from app.core.repository import BaseRepository
 from typing import List
@@ -26,6 +26,30 @@ class AddressRepository(BaseRepository["Address"]):
             statement = statement.where(col(Address.deleted_at).is_(None))
 
         return self.session.exec(statement).all()
+
+    def unset_main_for_user(self, user_id: int) -> None:
+        stmt = (
+            update(Address)
+            .where(Address.user_id == user_id, Address.is_main == True)
+            .values(is_main=False, updated_at=datetime.now(timezone.utc))
+        )
+        self.session.exec(stmt)
+        self.session.flush()
+
+    def get_main_by_user_id(self, user_id: int) -> Address | None:
+        stmt = select(Address).where(
+            Address.user_id == user_id,
+            Address.is_main == True,
+            col(Address.deleted_at).is_(None),
+        )
+        return self.session.exec(stmt).first()
+
+    def count_active_by_user_id(self, user_id: int) -> int:
+        stmt = select(func.count(Address.id)).where(
+            Address.user_id == user_id,
+            col(Address.deleted_at).is_(None),
+        )
+        return self.session.exec(stmt).one()
 
     def soft_delete(self, adress: Address):
 
