@@ -45,7 +45,7 @@ def list_measurement_units(
     return svc.list_measurement_units()
 
 
-@router.get("/", response_model=IngredientList)
+@router.get("", response_model=IngredientList)
 def list_all_active_ingredients(
     filters: IngredientFilters = Depends(),
     svc: IngredientService = Depends(get_ingredient_service),
@@ -64,7 +64,7 @@ def get_by_id(
 # -- Admin Endpoints --------------------------------------------------
 
 
-@admin_router.get("/", response_model=IngredientListFull)
+@admin_router.get("", response_model=IngredientListFull)
 def list_all_admin(
     filters: IngredientFilters = Depends(),
     svc: IngredientService = Depends(get_ingredient_service),
@@ -72,7 +72,7 @@ def list_all_admin(
     return svc.list_all_admin(filters)
 
 
-@admin_router.post("/", response_model=IngredientPublic, status_code=201)
+@admin_router.post("", response_model=IngredientPublic, status_code=201)
 def create(
     data: IngredientCreate, svc: IngredientService = Depends(get_ingredient_service)
 ):

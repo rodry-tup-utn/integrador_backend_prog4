@@ -32,7 +32,7 @@ stock_router = APIRouter(
 # -- Public routes (read-only) --
 
 
-@router.get("/", response_model=ProductWithIngredients)
+@router.get("", response_model=ProductWithIngredients)
 def get_product_with_ingredients(
     product_id: Annotated[int, Path(ge=1)],
     svc: ProductIngredientService = Depends(get_service),
@@ -43,7 +43,7 @@ def get_product_with_ingredients(
 # -- Admin routes (write operations) --
 
 
-@stock_router.patch("/", response_model=ProductWithIngredients)
+@stock_router.patch("", response_model=ProductWithIngredients)
 def update_ingredients_batch(
     product_id: int,
     data: ProductIngredientBatchCreate,

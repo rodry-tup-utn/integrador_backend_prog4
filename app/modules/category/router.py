@@ -30,7 +30,7 @@ admin_router = APIRouter(
 )
 
 
-@router.get("/", response_model=CategoryList)
+@router.get("", response_model=CategoryList)
 def list_all_actives(
     offset: int = 0,
     limit: int = 20,
@@ -100,7 +100,7 @@ def get_by_id(
     return svc.get_by_id(id)
 
 
-@admin_router.get("/", response_model=CategoryListPrivate)
+@admin_router.get("", response_model=CategoryListPrivate)
 def list_all_admin(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -109,7 +109,7 @@ def list_all_admin(
     return svc.list_all_admin(offset, limit)
 
 
-@admin_router.post("/", response_model=CategoryPrivate, status_code=201)
+@admin_router.post("", response_model=CategoryPrivate, status_code=201)
 def create(
     data: CategoryCreate,
     svc: CategoryService = Depends(get_category_service),

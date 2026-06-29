@@ -140,7 +140,7 @@ def update_password(
 
 
 @public_router.post(
-    "/", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 def create_user(data: UserCreate, svc: UserService = Depends(get_user_service)):
     return svc.create(data)
@@ -150,7 +150,7 @@ def create_user(data: UserCreate, svc: UserService = Depends(get_user_service)):
 
 
 @admin_router.post(
-    "/", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 def create_user_admin(
     data: UserCreateByAdmin,
@@ -160,7 +160,7 @@ def create_user_admin(
     return svc.create_by_admin(data, admin_user.id)
 
 
-@admin_router.get("/", response_model=UserPaginatedRead)
+@admin_router.get("", response_model=UserPaginatedRead)
 def get_all_users(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1)] = 20,

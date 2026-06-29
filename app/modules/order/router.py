@@ -41,7 +41,7 @@ orders_router = APIRouter(
 
 
 @user_router.post(
-    "/", response_model=OrderDetailPublic, status_code=status.HTTP_201_CREATED
+    "", response_model=OrderDetailPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_order(
     data: OrderCreate,
@@ -51,7 +51,7 @@ async def create_order(
     return await svc.create(data, user_data.id)
 
 
-@user_router.get("/", response_model=OrderList)
+@user_router.get("", response_model=OrderList)
 def list_my_orders(
     user_data: Annotated[TokenPayloadData, Depends(get_token_payload)],
     svc: Annotated[OrderService, Depends(get_order_service)],
@@ -95,7 +95,7 @@ def soft_delete(
     svc.soft_delete(id)
 
 
-@orders_router.get("/", response_model=OrderAdminList)
+@orders_router.get("", response_model=OrderAdminList)
 def list_all_orders_staff(
     svc: Annotated[OrderService, Depends(get_order_service)],
     filters: OrderFilters = Depends(),
