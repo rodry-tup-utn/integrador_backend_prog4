@@ -41,7 +41,7 @@ stock_router = APIRouter(
 )
 
 
-@stock_router.get("/", response_model=ProductListAdmin)
+@stock_router.get("", response_model=ProductListAdmin)
 def list_all_admin(
     svc: ProductService = Depends(get_product_service),
     filters: ProductFilters = Depends(),
@@ -84,7 +84,7 @@ def get_by_id_with_details(
     return svc.get_by_id_with_details(id)
 
 
-@router.get("/", response_model=ProductList)
+@router.get("", response_model=ProductList)
 def list_all_actives(
     filters: ProductFilters = Depends(),  # para que fastapi los tome como query params y no body
     svc: ProductService = Depends(get_product_service),
@@ -108,7 +108,7 @@ def delete(
     return svc.delete(id)
 
 
-@admin_router.post("/", response_model=ProductPublic, status_code=201)
+@admin_router.post("", response_model=ProductPublic, status_code=201)
 def create(
     data: ProductCreate,
     svc: ProductService = Depends(get_product_service),
