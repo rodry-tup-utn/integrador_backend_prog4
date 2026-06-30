@@ -296,7 +296,20 @@ class ProductService:
                     if p.id in stocks:
                         p.stock = stocks[p.id]
 
-            data = [ProductAdmin.model_validate(p) for p in products]
+            data = []
+            for p in products:
+                pd = ProductAdmin.model_validate(p)
+                primary = next(
+                    (
+                        link.category.name
+                        for link in p.category_links
+                        if link.is_primary
+                    ),
+                    None,
+                )
+                pd.primary_category_name = primary
+                data.append(pd)
+
             result = ProductListAdmin(data=data, total=total)
 
         return result

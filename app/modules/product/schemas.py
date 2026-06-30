@@ -50,6 +50,7 @@ class ProductAdmin(ProductPublic):
     created_at: datetime
     updated_at: datetime | None
     deleted_at: datetime | None
+    primary_category_name: str | None = None
 
 
 class ProductDetail(ProductPublic):

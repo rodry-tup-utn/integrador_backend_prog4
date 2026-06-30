@@ -24,7 +24,16 @@ class ProductRepository(BaseRepository[Product]):
         self, filters: ProductFilters, only_actives=True
     ) -> Sequence[Product]:
 
-        statement = select(Product).offset(filters.offset).limit(filters.limit)
+        statement = (
+            select(Product)
+            .offset(filters.offset)
+            .limit(filters.limit)
+            .options(
+                selectinload(Product.category_links).selectinload(
+                    ProductCategoryLink.category
+                )
+            )
+        )
 
         if filters.search:
             statement = statement.where(col(Product.name).ilike(f"%{filters.search}%"))
