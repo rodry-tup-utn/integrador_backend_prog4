@@ -272,6 +272,12 @@ class PaymentService:
                 order = uow.ordersRepo.get_by_id(payment.order_id)
                 if order and order.state_code == ORDER_STATE_PENDING:
                     uow.ordersRepo.update_state(order, ORDER_STATE_CONFIRMED)
+                    uow.historialsRepo.create_entry(
+                        order_id=payment.order_id,
+                        state_from_code=ORDER_STATE_PENDING,
+                        state_to_code=ORDER_STATE_CONFIRMED,
+                        reason="Pago aprobado por Mercado Pago",
+                    )
                     await self._emit_ws_payment_event(payment.order_id)
 
         return {"status": "ok"}

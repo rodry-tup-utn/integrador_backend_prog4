@@ -3,6 +3,9 @@ from sqlmodel import Session
 from app.core.unit_of_work import UnitOfWork
 from app.modules.payments.repository import PaymentRepository
 from app.modules.order.repositories.order_repository import OrderRepository
+from app.modules.order.repositories.order_historial_repository import (
+    OrderHistorialRepository,
+)
 
 
 class PaymentUnitOfWork(UnitOfWork["PaymentUnitOfWork"]):
@@ -10,3 +13,4 @@ class PaymentUnitOfWork(UnitOfWork["PaymentUnitOfWork"]):
         super().__init__(session)
         self.paymentsRepo = PaymentRepository(session)
         self.ordersRepo = OrderRepository(session)
+        self.historialsRepo = OrderHistorialRepository(session)
